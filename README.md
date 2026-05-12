@@ -16,6 +16,7 @@ for immersive PVP interactions in Unity.
 - Animation-based combat system
 
 ## System Architecture
+<img width="331" height="561" alt="System Architecture" src="https://github.com/user-attachments/assets/ce38f12b-8266-4b79-86d9-50fae2bcca60" />
 
 
 
@@ -25,7 +26,9 @@ for immersive PVP interactions in Unity.
 
 
 ## Combat Demo
-
+<img width="183" height="169" alt="Slash" src="https://github.com/user-attachments/assets/a0db54de-243f-4ebb-a3c9-53808638d7ad" />
+<img width="175" height="176" alt="Shied   Jump" src="https://github.com/user-attachments/assets/dfd17fb2-5598-4214-9835-2f49161dddda" />
+<img width="288" height="248" alt="AI tracking" src="https://github.com/user-attachments/assets/28566b87-99fa-4181-aebc-9c99a46c1eea" />
 
 
 ## Result
