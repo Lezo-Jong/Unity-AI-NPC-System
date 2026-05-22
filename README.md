@@ -32,8 +32,11 @@ for immersive PVP interactions in Unity.
 
 
 ## Result
+- CSV column
+<img width="237" height="71" alt="CSV" src="https://github.com/user-attachments/assets/a5614c4b-f130-41a9-b9df-68284918bffb" />
 
 - Test Accuracy: 93.47%
+<img width="198" height="67" alt="PyTorch" src="https://github.com/user-attachments/assets/f9561634-8630-46ad-828b-061d44fb70a3" />
 
 ## Demo Video
 
