@@ -1,5 +1,7 @@
 # Unity-AI-NPC-System
 
+⚠️ 이 프로젝트의 한계(학습된 모델이 NPC 행동에 연결되지 않음)를 분석하고 다시 설계한 후속 연구는 LLM-unity-DualArena에 있습니다.
+
 AI-driven NPC behavior system in Unity using PyTorch, ONNX, and Barracuda.
 
 ## Overview
