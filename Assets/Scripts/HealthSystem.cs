@@ -13,6 +13,12 @@ public class HealthSystem : MonoBehaviour
     private Vector3 spawnPoint;
     private Quaternion spawnRotation;
 
+    [Header("Experiment Settings")]
+    [Tooltip("자동 회복 사용 (MatchRunner가 실험 중 자동으로 끔)")]
+    public bool autoRegen = true;
+    [Tooltip("사망 후 자동 리스폰 사용 (MatchRunner가 실험 중 자동으로 끔)")]
+    public bool autoRespawn = true;
+
     [Header("Regen Settings")]
     public float regenDelay = 5f;
     public float regenInterval = 1f;
@@ -89,7 +95,7 @@ public class HealthSystem : MonoBehaviour
         isDead = true;
         Debug.Log($"{gameObject.name} 사망!");
         OnDeath?.Invoke();
-        StartCoroutine(RespawnCoroutine());
+        if (autoRespawn) StartCoroutine(RespawnCoroutine());
     }
 
     private IEnumerator RespawnCoroutine()
@@ -127,13 +133,32 @@ public class HealthSystem : MonoBehaviour
         Debug.Log($"{gameObject.name} 리스폰 완료!");
     }
 
+    // ✅ 실험용 초기화: 코루틴 정지, HP·상태 초기화, 지정 위치로 이동
+    public void ResetForMatch(Vector3 position, Quaternion rotation)
+    {
+        StopAllCoroutines();
+        gameObject.SetActive(true);
+        isDead = false;
+        IsBlocking = false;
+        currentHP = maxHP;
+        lastDamageTime = -999f;
+        transform.SetPositionAndRotation(position, rotation);
+        OnHealthChanged?.Invoke(currentHP, maxHP);
+
+        if (animator == null) animator = GetComponent<Animator>();
+        if (animator != null && animator.HasState(0, Animator.StringToHash("Idle")))
+            animator.Play("Idle", 0, 0f);
+
+        regenCoroutine = StartCoroutine(AutoRegen());
+    }
+
     private IEnumerator AutoRegen()
     {
         while (true)
         {
             yield return new WaitForSeconds(regenInterval);
 
-            if (!isDead && IsIdle && Time.time - lastDamageTime >= regenDelay && currentHP < maxHP)
+            if (autoRegen && !isDead && IsIdle && Time.time - lastDamageTime >= regenDelay && currentHP < maxHP)
             {
                 Heal(regenAmount);
             }
