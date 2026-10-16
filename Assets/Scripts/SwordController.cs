@@ -35,6 +35,14 @@ public class SwordController : MonoBehaviour
         if (swordCollider != null) swordCollider.enabled = false;
     }
 
+    // 쿨다운 중에 죽어서 꺼지면 쿨다운 코루틴이 멈춰 canAttack/canDealDamage가 false로 남으므로,
+    // 다시 켜질 때(리스폰) 초기화. 이게 없으면 부활 후 그 캐릭터의 칼은 영원히 데미지를 못 줌.
+    private void OnEnable()
+    {
+        canAttack = true;
+        canDealDamage = true;
+    }
+
     // ────────────────────────────────
     // 일반 Slash Animation Event
     // ────────────────────────────────
