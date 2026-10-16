@@ -42,8 +42,8 @@ public abstract class NpcBrain : MonoBehaviour
 
         if (Time.time < nextDecisionTime) return;
         nextDecisionTime = Time.time + 1f / decisionHz;
-        if (executor.IsBusy) { Status = "행동 중"; return; }
-        Status = "결정 중";
+        if (!executor.CanDecide) { Status = "행동 중"; return; }
+        Status = executor.IsBusy ? "콤보 결정" : "결정 중";
 
         stopwatch.Restart();
         CombatFeatures.Compute(self, opponent, features);

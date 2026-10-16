@@ -3,7 +3,12 @@ using UnityEngine;
 using UnityEngine.AI;
 
 // NPC 행동 실행기. Random / FSM / ML / 상대 봇 모두 이 컴포넌트로 행동을 실행하므로
-// 조건 간 차이는 "행동 선택(Brain)"뿐입니다. (기존 EnemyAI의 타이밍·데미지 규칙을 그대로 따름)
+// 조건 간 차이는 "행동 선택(Brain)"뿐입니다.
+// 플레이어(PlayerController)와 같은 규칙을 따릅니다:
+// - 공격·방어·점프 애니메이션이 끝날 때까지 다음 행동을 받지 않음
+// - 예외: Slash / Slash2 중에는 다음 콤보 단계를 한 번 예약할 수 있음 (결정 기회 1회)
+// - 공격 판정은 애니메이션 이벤트(칼 콜라이더가 켜지는 시점)와 같은 시각에 냄
+// - 방어는 Block / CrouchBlock 애니메이션 동안만 유효 (HealthSystem이 Animator 상태로 판단)
 [RequireComponent(typeof(NavMeshAgent))]
 public class NpcActionExecutor : MonoBehaviour
 {
@@ -17,9 +22,15 @@ public class NpcActionExecutor : MonoBehaviour
     public float hitRadius = 1.5f;
     public int minDamage = 5;
     public int maxDamage = 12;
-    public float slashHitDelay = 0.5f;   // Slash 계열: 트리거 후 판정까지
-    public float actionDuration = 1f;    // Block, Jump, Crouch, CrouchSlash 지속 시간
-    public float comboWindow = 1.0f;     // Slash2/Slash3가 이어질 수 있는 시간
+    [Tooltip("각 공격 상태에 들어간 뒤 판정까지 시간(s). 애니메이션 이벤트 EnableSlashCollider 시각과 같음")]
+    public float slashHitTime = 0.58f;
+    public float slash2HitTime = 0.78f;
+    public float slash3HitTime = 1.32f;
+    public float crouchSlashHitTime = 0.55f;
+    [Tooltip("Crouch(앉아 있기) 유지 시간")]
+    public float actionDuration = 1f;
+    [Tooltip("트리거를 걸었는데 이 시간 안에 해당 애니메이션 상태로 못 들어가면 행동 취소")]
+    public float enterTimeout = 0.8f;
     public float turnSpeed = 540f;
     [Tooltip("NavMesh 멈춤 거리 = attackRange - 이 값 (사거리 안쪽에서 확실히 멈추도록)")]
     public float stopMargin = 1.0f;
@@ -35,6 +46,8 @@ public class NpcActionExecutor : MonoBehaviour
 
     public ActionClass CurrentAction { get; private set; } = ActionClass.Idle;
     public bool IsBusy { get; private set; }
+    // Brain이 지금 결정해도 되는지: 한가하거나, 콤보 예약 기회가 남아 있을 때
+    public bool CanDecide => !IsBusy || (comboWindowOpen && !comboDecisionUsed);
     public readonly int[] ExecutedCounts = new int[ActionInfo.Count];
     public int HitsLanded { get; private set; }
 
@@ -42,9 +55,12 @@ public class NpcActionExecutor : MonoBehaviour
     private Animator animator;
     private HealthSystem health;
     private Vector3 lastPosition;
-    private float lastSlashTime = -999f;
-    private ActionClass lastSlash = ActionClass.Idle;
     private float busySince;
+    private ActionClass currentSlash = ActionClass.Idle;
+    private ActionClass? queuedSlash;
+    private bool comboWindowOpen, comboDecisionUsed;
+
+    static readonly string[] ActionTriggers = { "Slash", "Slash2", "Slash3", "Block", "CrouchBlock", "CrouchSlash", "Jump" };
 
     private void Awake()
     {
@@ -103,21 +119,25 @@ public class NpcActionExecutor : MonoBehaviour
 
     public void Execute(ActionClass a)
     {
-        if (IsBusy) return;
         if (health != null && health.IsDead) return;
 
-        // 콤보 규칙: Slash2는 Slash 직후, Slash3는 Slash2 직후에만 가능 (아니면 앞 단계로 대체)
-        bool inWindow = Time.time - lastSlashTime <= comboWindow;
-        if (a == ActionClass.Slash3 && !(inWindow && lastSlash == ActionClass.Slash2))
-            a = (inWindow && lastSlash == ActionClass.Slash) ? ActionClass.Slash2 : ActionClass.Slash;
-        if (a == ActionClass.Slash2 && !(inWindow && lastSlash == ActionClass.Slash))
-            a = ActionClass.Slash;
+        if (IsBusy)
+        {
+            // 행동 중에는 콤보 예약만 가능 (예약 기회는 한 번, 공격이 아닌 선택이면 콤보 종료)
+            if (!comboWindowOpen || comboDecisionUsed) return;
+            comboDecisionUsed = true;
+            if (a != ActionClass.Slash && a != ActionClass.Slash2 && a != ActionClass.Slash3) return;
+            ActionClass next = currentSlash == ActionClass.Slash ? ActionClass.Slash2 : ActionClass.Slash3;
+            animator.SetTrigger(next.ToString());
+            queuedSlash = next;
+            Count(next);
+            return;
+        }
 
-        ExecutedCounts[(int)a]++;
-        if (debugLog)
-            Debug.Log(string.Format("[Executor] {0} 실행 (거리 {1:F2} m)", a,
-                opponent != null ? FlatDistance(transform.position, opponent.transform.position) : -1f));
+        // 한가할 때 Slash2/Slash3 요청은 콤보 시작(Slash)으로
+        if (a == ActionClass.Slash2 || a == ActionClass.Slash3) a = ActionClass.Slash;
 
+        Count(a);
         switch (a)
         {
             case ActionClass.Idle:
@@ -138,66 +158,136 @@ public class NpcActionExecutor : MonoBehaviour
         }
     }
 
+    private void Count(ActionClass a)
+    {
+        ExecutedCounts[(int)a]++;
+        if (debugLog)
+            Debug.Log(string.Format("[Executor] {0} 실행 (거리 {1:F2} m)", a,
+                opponent != null ? FlatDistance(transform.position, opponent.transform.position) : -1f));
+    }
+
+    private bool InState(string state)
+    {
+        return animator.GetCurrentAnimatorStateInfo(0).IsName(state);
+    }
+
+    // 공격·방어·점프 상태이거나 그 상태로 넘어가는 중
+    private bool AnimLocked()
+    {
+        if (IsActionState(animator.GetCurrentAnimatorStateInfo(0))) return true;
+        return animator.IsInTransition(0) && IsActionState(animator.GetNextAnimatorStateInfo(0));
+    }
+
+    private static bool IsActionState(AnimatorStateInfo st)
+    {
+        foreach (string t in ActionTriggers) if (st.IsName(t)) return true;
+        return false;
+    }
+
+    private float HitTime(ActionClass a)
+    {
+        switch (a)
+        {
+            case ActionClass.Slash: return slashHitTime;
+            case ActionClass.Slash2: return slash2HitTime;
+            case ActionClass.Slash3: return slash3HitTime;
+            default: return crouchSlashHitTime;
+        }
+    }
+
+    private IEnumerator WaitEnter(string state, float timeout)
+    {
+        float t = 0f;
+        while (!InState(state) && t < timeout) { t += Time.deltaTime; yield return null; }
+    }
+
     private IEnumerator DoAction(ActionClass a)
     {
         IsBusy = true;
         busySince = Time.time;
-        CurrentAction = a;
         Stop();
+        bool crouching = a == ActionClass.Crouch || a == ActionClass.CrouchBlock || a == ActionClass.CrouchSlash;
 
         try
         {
-        switch (a)
-        {
-            case ActionClass.Slash:
-            case ActionClass.Slash2:
-            case ActionClass.Slash3:
-                animator.SetTrigger(a.ToString());
-                yield return new WaitForSeconds(slashHitDelay);
-                TryHit();
-                lastSlashTime = Time.time;
-                lastSlash = a;
-                break;
+            switch (a)
+            {
+                case ActionClass.Slash:
+                    currentSlash = ActionClass.Slash;
+                    animator.SetTrigger("Slash");
+                    while (true)
+                    {
+                        string st = currentSlash.ToString();
+                        yield return WaitEnter(st, enterTimeout);
+                        if (!InState(st)) break;   // 상태 진입 실패 → 취소
 
-            case ActionClass.Block:
-                animator.SetTrigger("Block");
-                if (health != null) health.IsBlocking = true;
-                yield return new WaitForSeconds(actionDuration);
-                if (health != null) health.IsBlocking = false;
-                break;
+                        CurrentAction = currentSlash;
+                        busySince = Time.time;
+                        queuedSlash = null;
+                        comboDecisionUsed = false;
+                        comboWindowOpen = currentSlash != ActionClass.Slash3;
+                        float t0 = Time.time;
+                        bool hit = false;
+                        while (InState(st))
+                        {
+                            if (!hit && Time.time - t0 >= HitTime(currentSlash)) { TryHit(); hit = true; }
+                            yield return null;
+                        }
+                        comboWindowOpen = false;
+                        if (queuedSlash == null) break;
+                        currentSlash = queuedSlash.Value;   // 예약한 다음 콤보 단계로
+                    }
+                    break;
 
-            case ActionClass.CrouchBlock:
-                animator.SetBool("IsCrouching", true);
-                animator.SetTrigger("CrouchBlock");
-                if (health != null) health.IsBlocking = true;
-                yield return new WaitForSeconds(actionDuration);
-                if (health != null) health.IsBlocking = false;
-                animator.SetBool("IsCrouching", false);
-                break;
+                case ActionClass.Block:
+                case ActionClass.Jump:
+                {
+                    string st = a.ToString();
+                    animator.SetTrigger(st);
+                    yield return WaitEnter(st, enterTimeout);
+                    if (!InState(st)) break;
+                    CurrentAction = a;
+                    while (InState(st)) yield return null;
+                    break;
+                }
 
-            case ActionClass.Jump:
-                animator.SetTrigger("Jump");
-                yield return new WaitForSeconds(actionDuration);
-                break;
+                case ActionClass.CrouchBlock:
+                case ActionClass.CrouchSlash:
+                {
+                    string st = a.ToString();
+                    animator.SetBool("IsCrouching", true);
+                    animator.SetTrigger(st);
+                    // Idle → Crouch → 해당 상태로 두 번 넘어가므로 대기 시간을 넉넉히
+                    yield return WaitEnter(st, enterTimeout * 2f);
+                    if (!InState(st)) break;
+                    CurrentAction = a;
+                    float t0 = Time.time;
+                    bool hit = a != ActionClass.CrouchSlash;
+                    while (InState(st))
+                    {
+                        if (!hit && Time.time - t0 >= crouchSlashHitTime) { TryHit(); hit = true; }
+                        yield return null;
+                    }
+                    break;
+                }
 
-            case ActionClass.Crouch:
-                animator.SetBool("IsCrouching", true);
-                yield return new WaitForSeconds(actionDuration);
-                animator.SetBool("IsCrouching", false);
-                break;
+                case ActionClass.Crouch:
+                    animator.SetBool("IsCrouching", true);
+                    CurrentAction = ActionClass.Crouch;
+                    yield return new WaitForSeconds(actionDuration);
+                    break;
+            }
 
-            case ActionClass.CrouchSlash:
-                animator.SetBool("IsCrouching", true);
-                animator.SetTrigger("CrouchSlash");
-                yield return new WaitForSeconds(actionDuration);
-                TryHit();
-                animator.SetBool("IsCrouching", false);
-                break;
-        }
+            // 동작 애니메이션이 완전히 끝날 때까지 대기 (끝나는 전환 포함)
+            if (crouching) animator.SetBool("IsCrouching", false);
+            while (AnimLocked()) yield return null;
         }
         finally
         {
-            if (health != null && ActionInfo.IsDefense(a)) health.IsBlocking = false;
+            foreach (string t in ActionTriggers) animator.ResetTrigger(t);   // 실패·취소된 예약 제거
+            if (crouching) animator.SetBool("IsCrouching", false);
+            comboWindowOpen = false;
+            queuedSlash = null;
             CurrentAction = ActionClass.Idle;
             IsBusy = false;
         }
@@ -282,9 +372,15 @@ public class NpcActionExecutor : MonoBehaviour
     {
         StopAllCoroutines();
         IsBusy = false;
+        comboWindowOpen = false;
+        queuedSlash = null;
         CurrentAction = ActionClass.Idle;
         if (health != null) health.IsBlocking = false;
-        if (animator != null) animator.SetBool("IsCrouching", false);
+        if (animator != null)
+        {
+            animator.SetBool("IsCrouching", false);
+            foreach (string t in ActionTriggers) animator.ResetTrigger(t);
+        }
         Stop();
     }
 }
