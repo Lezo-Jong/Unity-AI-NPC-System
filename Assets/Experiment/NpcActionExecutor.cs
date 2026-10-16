@@ -80,6 +80,12 @@ public class NpcActionExecutor : MonoBehaviour
             StopAll();
         }
 
+        // Move는 실제로 움직이는 동안만 Move (플레이어 라벨 규칙과 동일: 속도 > 임계값일 때만 Move).
+        // 도착해서 멈췄는데 Move로 남아 있으면 self_cur_move 입력이 학습 때와 달라짐.
+        if (!IsBusy && CurrentAction == ActionClass.Move && agent.isOnNavMesh && !agent.pathPending
+            && agent.remainingDistance <= agent.stoppingDistance + 0.05f && agent.velocity.sqrMagnitude < 0.01f)
+            CurrentAction = ActionClass.Idle;
+
         // 이동 애니메이션 (기존 EnemyAI와 동일한 파라미터)
         float dt = Time.deltaTime;
         if (dt > 0f && animator != null)

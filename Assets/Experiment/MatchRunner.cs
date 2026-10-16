@@ -33,6 +33,8 @@ public class MatchRunner : MonoBehaviour
     public string runLabel = "main";
     [Tooltip("모든 Brain·Executor에 똑같이 적용되는 공격 사거리(m). 캐릭터 Scale에 맞춰 설정 (NavMeshAgent 반지름 × Scale × 2 = 최소 접근 거리보다 커야 함)")]
     public float attackRange = 4f;
+    [Tooltip("NPC끼리 NavMeshAgent 회피를 끔. 켜 두면 서로 밀어내서 3.75 m 안으로 못 들어감 (사람과 싸울 때는 약 3.0 m)")]
+    public bool disableAgentAvoidance = true;
 
     private NpcActionExecutor npcExec, botExec;
     private CombatAgentState npcState, botState;
@@ -74,6 +76,16 @@ public class MatchRunner : MonoBehaviour
         foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain })
             if (b != null) b.opponent = botState;
         botBrain.opponent = npcState;
+
+        // 사람 대 NPC(학습 데이터)와 같은 교전 거리가 되도록 NPC끼리 회피 끄기
+        if (disableAgentAvoidance)
+        {
+            foreach (GameObject go in new[] { npc, opponentBot })
+            {
+                NavMeshAgent ag = go.GetComponent<NavMeshAgent>();
+                if (ag != null) ag.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
+            }
+        }
 
         // 공격 사거리를 한 곳에서 통일
         foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain, botBrain })

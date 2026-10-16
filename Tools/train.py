@@ -107,7 +107,7 @@ def set_seed(seed):
     torch.manual_seed(seed)
 
 
-def fit(x, y, seed, epochs, lr, batch, hidden):
+def fit(x, y, seed, epochs, lr, batch, hidden, class_weight="sqrt"):
     set_seed(seed)
     mean = x.mean(0)
     std = x.std(0)
@@ -116,6 +116,10 @@ def fit(x, y, seed, epochs, lr, batch, hidden):
     # 클래스 불균형 보정 (Idle/Move가 대부분을 차지)
     counts = np.bincount(y, minlength=len(ACTIONS)).astype(np.float32)
     w = np.where(counts > 0, counts.sum() / (len(ACTIONS) * np.maximum(counts, 1)), 0.0)
+    if class_weight == "sqrt":
+        w = np.sqrt(w)
+    elif class_weight == "none":
+        w = (counts > 0).astype(np.float32)
     loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(w, dtype=torch.float32))
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
 
@@ -152,6 +156,8 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--batch", type=int, default=128)
     ap.add_argument("--hidden", type=int, default=64)
+    ap.add_argument("--class-weight", choices=["balanced", "sqrt", "none"], default="sqrt",
+                    help="클래스 불균형 보정: balanced(빈도 역수), sqrt(그 제곱근, 약하게), none(보정 없음)")
     ap.add_argument("--target", choices=["decision", "current"], default="decision")
     ap.add_argument("--horizon", type=int, default=3, help="한가한 순간 이후 새 행동을 찾을 틱 수 (10 Hz 기준 3 = 0.3초)")
     args = ap.parse_args()
@@ -182,7 +188,7 @@ def main():
         shuffled = dict(zip(uniq, rng.permutation(len(uniq))))
         g_shuffled = np.array([shuffled[s] for s in groups])
         for k, (tr, te) in enumerate(GroupKFold(n_splits=folds).split(x, y, g_shuffled)):
-            model = fit(x[tr], y[tr], seed, args.epochs, args.lr, args.batch, args.hidden)
+            model = fit(x[tr], y[tr], seed, args.epochs, args.lr, args.batch, args.hidden, args.class_weight)
             pred = predict(model, x[te])
             majority = np.bincount(y[tr], minlength=len(ACTIONS)).argmax()
             rows.append({
@@ -203,7 +209,7 @@ def main():
         "n_runs": len(res), "folds": folds, "seeds": args.seeds,
         "n_samples": int(len(df)), "n_sessions": int(n_sessions),
         "n_participants": int(df["participant_id"].nunique()),
-        "target": args.target, "horizon": args.horizon, "n_raw_rows": int(n_raw),
+        "class_weight": args.class_weight, "target": args.target, "horizon": args.horizon, "n_raw_rows": int(n_raw),
     }
     for col in ["accuracy", "balanced_acc", "macro_f1", "majority_baseline_acc", "majority_baseline_macro_f1"]:
         m, s = res[col].mean(), res[col].std(ddof=1)
@@ -218,7 +224,7 @@ def main():
         json.dump(summary, fp, indent=2, ensure_ascii=False)
 
     # 최종 모델: 전체 데이터, 첫 번째 시드
-    final = fit(x, y, args.seeds[0], args.epochs, args.lr, args.batch, args.hidden)
+    final = fit(x, y, args.seeds[0], args.epochs, args.lr, args.batch, args.hidden, args.class_weight)
     torch.onnx.export(
         final, torch.zeros(1, len(FEATURES)), args.out,
         input_names=["input"], output_names=["output"],

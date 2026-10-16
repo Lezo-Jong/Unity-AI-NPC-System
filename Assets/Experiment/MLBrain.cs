@@ -1,4 +1,7 @@
 using System;
+using System.Globalization;
+using System.IO;
+using System.Text;
 using Unity.InferenceEngine;
 using UnityEngine;
 
@@ -9,11 +12,17 @@ public class MLBrain : NpcBrain
 {
     public ModelAsset modelAsset;
     public BackendType backendType = BackendType.CPU;
+    [Tooltip("켜면 확률(softmax)에 따라 행동을 뽑음. 끄면 가장 높은 확률의 행동만 고름(argmax). 난수는 MatchRunner의 판별 시드를 따름")]
+    public bool sampleAction = false;
+    [Tooltip("진단용: 매 결정의 입력 19개·출력 확률·선택 행동을 CSV로 저장 (persistentDataPath/MLDebug)")]
+    public bool logDecisions = false;
 
     public int FallbackCount { get; private set; }
 
     private Worker worker;
     private int fallbackComboStep;
+    private StreamWriter debugWriter;
+    private readonly float[] probs = new float[ActionInfo.Count];
 
     protected override void Awake()
     {
@@ -58,7 +67,10 @@ public class MLBrain : NpcBrain
                     {
                         if (logits[i] > logits[best]) best = i;
                     }
-                    return (ActionClass)best;
+                    Softmax(logits, best);
+                    int chosen = sampleAction ? Sample() : best;
+                    if (logDecisions) LogDecision(f, chosen);
+                    return (ActionClass)chosen;
                 }
             }
             catch (Exception e)
@@ -70,8 +82,47 @@ public class MLBrain : NpcBrain
         return FSMBrain.Rule(f, attackRange, 1.0f, ref fallbackComboStep);
     }
 
+    private void Softmax(float[] logits, int best)
+    {
+        float sum = 0f;
+        for (int i = 0; i < probs.Length; i++) { probs[i] = Mathf.Exp(logits[i] - logits[best]); sum += probs[i]; }
+        for (int i = 0; i < probs.Length; i++) probs[i] /= sum;
+    }
+
+    private int Sample()
+    {
+        float r = UnityEngine.Random.value, acc = 0f;
+        for (int i = 0; i < probs.Length; i++) { acc += probs[i]; if (r < acc) return i; }
+        return probs.Length - 1;
+    }
+
+    private void LogDecision(float[] f, int chosen)
+    {
+        CultureInfo ci = CultureInfo.InvariantCulture;
+        if (debugWriter == null)
+        {
+            string dir = Path.Combine(Application.persistentDataPath, "MLDebug");
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, string.Format("ml_decisions_{0:yyyyMMdd_HHmmss}.csv", DateTime.Now));
+            debugWriter = new StreamWriter(path, false, new UTF8Encoding(false));
+            StringBuilder h = new StringBuilder("time,");
+            h.Append(string.Join(",", CombatFeatures.Names));
+            foreach (string n in Enum.GetNames(typeof(ActionClass))) h.Append(",p_").Append(n);
+            h.Append(",chosen");
+            debugWriter.WriteLine(h.ToString());
+            UnityEngine.Debug.Log("[MLBrain] 결정 기록: " + path);
+        }
+        StringBuilder sb = new StringBuilder(256);
+        sb.Append(Time.time.ToString("F3", ci));
+        foreach (float v in f) sb.Append(',').Append(v.ToString("0.#####", ci));
+        foreach (float v in probs) sb.Append(',').Append(v.ToString("0.####", ci));
+        sb.Append(',').Append((ActionClass)chosen);
+        debugWriter.WriteLine(sb.ToString());
+    }
+
     private void OnDestroy()
     {
         worker?.Dispose();
+        if (debugWriter != null) { debugWriter.Flush(); debugWriter.Close(); debugWriter = null; }
     }
 }
