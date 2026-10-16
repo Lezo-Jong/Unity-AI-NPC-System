@@ -19,14 +19,17 @@ public class PlayerController : MonoBehaviour
     public float mouseSensitivity = 5f;
     private float xRotation = 0f;
 
-    [Header("Crouch & Combo Settings")]
-    public float comboInputBufferTime = 0.5f;
-    public float comboResetTime = 1f;
-
-    private int comboStep = 0;
-    private bool canReceiveComboInput = true;
-    private float comboInputTimer = 0f;
-    private float lastComboTime = 0f;
+    // 동작(공격·방어·점프) 중에는 새 입력을 받지 않습니다 (NPC의 IsBusy와 같은 규칙).
+    // 입력이 쌓였다가 동작이 끝난 뒤 뒤늦게 실행되면, 행동 라벨과 그 행동을 고른 상황이 어긋나기 때문입니다.
+    // 예외: Slash → Slash2 → Slash3 콤보는 앞 동작 중에 다음 단계를 예약할 수 있습니다.
+    static readonly int[] ActionStates =
+    {
+        Animator.StringToHash("Base Layer.Slash"), Animator.StringToHash("Base Layer.Slash2"),
+        Animator.StringToHash("Base Layer.Slash3"), Animator.StringToHash("Base Layer.Block"),
+        Animator.StringToHash("Base Layer.CrouchBlock"), Animator.StringToHash("Base Layer.CrouchSlash"),
+        Animator.StringToHash("Base Layer.Jump"),
+    };
+    static readonly string[] ActionTriggers = { "Slash", "Slash2", "Slash3", "Block", "CrouchBlock", "CrouchSlash", "Jump" };
 
     void Start()
     {
@@ -38,11 +41,34 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        bool locked = IsActionLocked();
+        if (!locked) ClearStaleTriggers();
+
         HandleMovement();
         HandleMouseLook();
-        HandleJump();
-        HandleCrouch();
-        HandleSlashCombo();
+        HandleJump(locked);
+        HandleCrouch(locked);
+        HandleSlashCombo(locked);
+    }
+
+    static bool IsAction(AnimatorStateInfo st)
+    {
+        foreach (int h in ActionStates) if (st.fullPathHash == h) return true;
+        return false;
+    }
+
+    // 현재 동작 중이거나 동작으로 넘어가는 중이면 true
+    bool IsActionLocked()
+    {
+        if (IsAction(animator.GetCurrentAnimatorStateInfo(0))) return true;
+        return animator.IsInTransition(0) && IsAction(animator.GetNextAnimatorStateInfo(0));
+    }
+
+    // 동작이 끝난 뒤 남아 있는 예약 입력 제거
+    void ClearStaleTriggers()
+    {
+        if (animator.IsInTransition(0)) return;
+        foreach (string t in ActionTriggers) animator.ResetTrigger(t);
     }
 
     // ──────────────────────────────
@@ -73,7 +99,7 @@ public class PlayerController : MonoBehaviour
     // ──────────────────────────────
     // 점프
     // ──────────────────────────────
-    void HandleJump()
+    void HandleJump(bool locked)
     {
         if (controller.isGrounded)
         {
@@ -83,7 +109,7 @@ public class PlayerController : MonoBehaviour
                 isJumping = false;
             }
 
-            if (Input.GetKeyDown(KeyCode.Space))
+            if (Input.GetKeyDown(KeyCode.Space) && !locked)
             {
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
                 animator.SetBool("Jump", true);
@@ -112,7 +138,7 @@ public class PlayerController : MonoBehaviour
     // ──────────────────────────────
     // Crouch 처리
     // ──────────────────────────────
-    void HandleCrouch()
+    void HandleCrouch(bool locked)
     {
         AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
         bool crouchKeyDown = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
@@ -145,7 +171,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // 서 있는 상태에서 우클릭 → Block
-        if (!crouchKeyDown && !state.IsName("CrouchBlock"))
+        if (!crouchKeyDown && !locked)
         {
             if (Input.GetMouseButtonDown(1))
             {
@@ -171,47 +197,18 @@ public class PlayerController : MonoBehaviour
 
     // ──────────────────────────────
     // Slash 콤보 처리 (Ctrl 안 누를 때만)
+    // 대기·이동 중 클릭 → Slash, Slash 중 클릭 → Slash2 예약, Slash2 중 클릭 → Slash3 예약, Slash3·다른 동작 중 클릭 → 무시
     // ──────────────────────────────
-    void HandleSlashCombo()
+    void HandleSlashCombo(bool locked)
     {
-        bool crouchKeyDown = Input.GetKey(KeyCode.LeftControl);
+        if (!Input.GetMouseButtonDown(0) || Input.GetKey(KeyCode.LeftControl)) return;
 
-        if (Input.GetMouseButtonDown(0) && canReceiveComboInput && !crouchKeyDown)
-        {
-            switch (comboStep)
-            {
-                case 0: animator.SetTrigger("Slash"); break;
-                case 1: animator.SetTrigger("Slash2"); break;
-                case 2: animator.SetTrigger("Slash3"); break;
-            }
+        AnimatorStateInfo st = animator.IsInTransition(0)
+            ? animator.GetNextAnimatorStateInfo(0)
+            : animator.GetCurrentAnimatorStateInfo(0);
 
-            comboStep++;
-            if (comboStep >= 3) comboStep = 0;
-
-            lastComboTime = Time.time;
-            canReceiveComboInput = false;
-        }
-
-        // 유예 시간
-        if (!canReceiveComboInput)
-        {
-            comboInputTimer += Time.deltaTime;
-            if (comboInputTimer >= comboInputBufferTime)
-            {
-                comboStep = 0;
-                canReceiveComboInput = true;
-                comboInputTimer = 0f;
-            }
-            else
-            {
-                canReceiveComboInput = true;
-            }
-        }
-
-        // 전체 콤보 리셋
-        if (Time.time - lastComboTime > comboResetTime)
-        {
-            comboStep = 0;
-        }
+        if (st.IsName("Slash")) animator.SetTrigger("Slash2");
+        else if (st.IsName("Slash2")) animator.SetTrigger("Slash3");
+        else if (!locked) animator.SetTrigger("Slash");
     }
 }

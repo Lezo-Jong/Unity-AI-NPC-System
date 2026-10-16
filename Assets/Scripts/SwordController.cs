@@ -29,6 +29,12 @@ public class SwordController : MonoBehaviour
         }
     }
 
+    // 동작이 중간에 끊기면(사망·리스폰 등) Disable 이벤트가 안 불릴 수 있으므로 꺼질 때 칼 판정도 끔
+    private void OnDisable()
+    {
+        if (swordCollider != null) swordCollider.enabled = false;
+    }
+
     // ────────────────────────────────
     // 일반 Slash Animation Event
     // ────────────────────────────────

@@ -58,7 +58,7 @@ public class HealthSystem : MonoBehaviour
         if (isDead) return;
 
         // ✅ Block 중이면 데미지 무효화
-        if (IsBlocking)
+        if (IsDefending())
         {
             Debug.Log($"{gameObject.name} Block 성공! 데미지 무효화됨.");
             return;
@@ -80,6 +80,21 @@ public class HealthSystem : MonoBehaviour
 
         if (currentHP <= 0)
             Die();
+    }
+
+    // 방어 중인지: NPC는 NpcActionExecutor가 IsBlocking을 켜 주고,
+    // 플레이어는 그런 코드가 없으므로 Animator가 Block/CrouchBlock 상태(또는 그 상태로 넘어가는 중)인지로 판단합니다.
+    private bool IsDefending()
+    {
+        if (IsBlocking) return true;
+        if (animator == null || !animator.isActiveAndEnabled) return false;
+        if (IsBlockState(animator.GetCurrentAnimatorStateInfo(0))) return true;
+        return animator.IsInTransition(0) && IsBlockState(animator.GetNextAnimatorStateInfo(0));
+    }
+
+    private static bool IsBlockState(AnimatorStateInfo st)
+    {
+        return st.IsName("Block") || st.IsName("CrouchBlock");
     }
 
     private void Heal(int amount)
