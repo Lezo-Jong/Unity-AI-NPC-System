@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
@@ -16,6 +17,9 @@ public abstract class NpcBrain : MonoBehaviour
 
     public readonly List<double> LatenciesMs = new List<double>();
     public string Status { get; private set; } = "대기";
+
+    // 결정할 때마다 (입력, 선택 행동, 콤보 예약 중이었는지)를 알림. MatchRunner가 기록에 사용.
+    public event Action<NpcBrain, float[], ActionClass, bool> Decided;
 
     protected readonly float[] features = new float[CombatFeatures.Count];
     private float nextDecisionTime;
@@ -51,6 +55,7 @@ public abstract class NpcBrain : MonoBehaviour
         stopwatch.Stop();
         LatenciesMs.Add(stopwatch.Elapsed.TotalMilliseconds);
 
+        Decided?.Invoke(this, features, a, executor.IsBusy);
         executor.Execute(a);
     }
 

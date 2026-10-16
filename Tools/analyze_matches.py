@@ -7,11 +7,18 @@ MatchRunner 결과(matches_*.csv) 분석: 리뷰어 코멘트 1·2 대응용 지
 - 경기 시간, 명중 수, 결정 지연(ms), FPS, fallback 횟수
 - 조건 간 비교: 승률 Fisher exact test, 엔트로피/명중 Mann–Whitney U, Holm 보정
 - run(반복 실험)별 승률 → 반복 간 평균 ± SD
+- 사람다움 (--decisions + --human): 사거리 안 결정 시점의 행동 분포를 사람 데이터와 비교한
+  Jensen–Shannon divergence (0 = 사람과 같음, 1 = 완전히 다름), 경기 단위 부트스트랩 95% CI와 조건 간 차이
 
 사용 예:
-  python Tools/analyze_matches.py "%USERPROFILE%/AppData/LocalLow/pvp/pvp/MatchLogs/matches_*.csv"
+  python Tools/analyze_matches.py "%USERPROFILE%/AppData/LocalLow/pvp/pvp/MatchLogs/matches_run*.csv"
+      --decisions "%USERPROFILE%/AppData/LocalLow/pvp/pvp/MatchLogs/decisions_run*.csv"
+      --human "%USERPROFILE%/AppData/LocalLow/pvp/pvp/CombatLogs"
+  (실제로는 한 줄로 입력)
 """
+import argparse
 import glob
+import os
 import sys
 from itertools import combinations
 
@@ -51,7 +58,14 @@ def holm(pvals):
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    patterns = sys.argv[1:] or ["matches_*.csv"]
+    ap = argparse.ArgumentParser()
+    ap.add_argument("patterns", nargs="*", default=["matches_*.csv"])
+    ap.add_argument("--decisions", nargs="*", default=[], help="MatchRunner의 decisions_*.csv")
+    ap.add_argument("--human", help="사람 데이터 CombatLogs 폴더 (사람다움 비교 기준)")
+    ap.add_argument("--range", type=float, default=4.5, help="사거리 안 결정으로 볼 최대 거리 (m)")
+    ap.add_argument("--boot", type=int, default=2000)
+    args = ap.parse_args()
+    patterns = args.patterns
     files = sorted({f for p in patterns for f in glob.glob(p)})
     if not files:
         raise SystemExit("결과 CSV가 없습니다: " + " ".join(patterns))
@@ -110,6 +124,78 @@ def main():
     print("|---|---|---|---|")
     for (m, a, b, p), pa in zip(tests, adj):
         print("| %s | %s vs %s | %.4g | %.4g |" % (m, a, b, p, pa))
+
+    if args.decisions and args.human:
+        human_likeness(args)
+
+
+ACTIONS = ["Idle", "Move", "Slash", "Slash2", "Slash3", "Block", "CrouchBlock", "Jump", "Crouch", "CrouchSlash"]
+SLASHES = {"Slash", "Slash2", "Slash3"}
+
+
+def npc_label(row):
+    # 사람 결정 표본(train.py build_decisions)과 같은 의미로 변환
+    if row["in_combo"] == 1:   # 콤보 예약 기회: 공격을 고르면 다음 단계, 아니면 콤보 종료(Idle)
+        if row["chosen"] in SLASHES:
+            return "Slash2" if row["self_action"] == "Slash" else "Slash3"
+        return "Idle"
+    return "Slash" if row["chosen"] in SLASHES else row["chosen"]   # 한가할 때 Slash2/3 요청은 Slash로 실행됨
+
+
+def dist_vec(labels):
+    c = pd.Series(labels).value_counts().reindex(ACTIONS, fill_value=0).to_numpy(float)
+    return c / c.sum() if c.sum() else c
+
+
+def js(p, q):
+    m = 0.5 * (p + q)
+    def kl(a, b):
+        mask = a > 0
+        return float((a[mask] * np.log2(a[mask] / b[mask])).sum())
+    return 0.5 * kl(p, m) + 0.5 * kl(q, m)
+
+
+def human_likeness(args):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from train import build_decisions, ACTIONS as TRAIN_ACTIONS
+
+    hfiles = sorted(glob.glob(os.path.join(args.human, "*.csv")))
+    hu = build_decisions(pd.concat([pd.read_csv(f) for f in hfiles], ignore_index=True).dropna(), 3)
+    hu = hu[hu["dist"] < args.range]
+    h = dist_vec([TRAIN_ACTIONS[a] for a in hu["action"]])
+
+    dfiles = sorted({f for p in args.decisions for f in glob.glob(p)})
+    dec = pd.concat([pd.read_csv(f) for f in dfiles], ignore_index=True)
+    dec = dec[dec["dist"] < args.range].copy()
+    dec["label"] = dec.apply(npc_label, axis=1)
+
+    print("\n사람다움: 사거리(<%.1f m) 안 결정 시점 행동 분포 vs 사람 (Jensen–Shannon divergence, 0=같음 1=완전히 다름)" % args.range)
+    print("사람 기준: 결정 표본 %d개 (파일 %d개)" % (len(hu), len(hfiles)))
+    rng = np.random.default_rng(0)
+    conds = list(dict.fromkeys(dec["condition"]))
+    boots = {}
+    print("| 조건 | 결정 수 | 경기 수 | JS divergence [95% CI] |")
+    print("|---|---|---|---|")
+    for c in conds:
+        d = dec[dec["condition"] == c]
+        keys = d.groupby(["run", "match"]).groups
+        groups = [d.loc[ix, "label"].to_numpy() for ix in keys.values()]
+        point = js(dist_vec(d["label"]), h)
+        b = np.array([js(dist_vec(np.concatenate([groups[i] for i in rng.integers(0, len(groups), len(groups))])), h)
+                      for _ in range(args.boot)])
+        boots[c] = b
+        print("| %s | %d | %d | %.3f [%.3f–%.3f] |" % (c, len(d), len(groups), point, *np.percentile(b, [2.5, 97.5])))
+
+    print("\n조건 간 차이 (부트스트랩, 95% CI가 0을 포함하지 않으면 유의)")
+    for a, b in combinations(conds, 2):
+        diff = boots[a] - boots[b]
+        lo, hi = np.percentile(diff, [2.5, 97.5])
+        print("  %s − %s: %.3f [%.3f–%.3f]%s" % (a, b, diff.mean(), lo, hi, "  *" if lo > 0 or hi < 0 else ""))
+
+    print("\n행동 분포 (%)")
+    tab = pd.DataFrame({c: dist_vec(dec.loc[dec["condition"] == c, "label"]) * 100 for c in conds}, index=ACTIONS)
+    tab["사람"] = h * 100
+    print(tab.round(1).to_string())
 
 
 if __name__ == "__main__":

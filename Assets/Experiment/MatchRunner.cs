@@ -45,6 +45,12 @@ public class MatchRunner : MonoBehaviour
     private ReferenceBotBrain botBrain;
     private StreamWriter writer;
 
+    [Header("결정 기록 (사람다움 분석용)")]
+    [Tooltip("NPC의 모든 결정(입력 19개, 선택 행동)을 decisions_*.csv로 저장. analyze_matches.py --decisions로 사람 데이터와 비교")]
+    public bool logDecisions = true;
+    private StreamWriter decisionWriter;
+    private float matchStartTime;
+
     [Header("진행 표시")]
     public bool showProgress = true;
 
@@ -111,6 +117,16 @@ public class MatchRunner : MonoBehaviour
         writer.Flush();
         UnityEngine.Debug.Log("[MatchRunner] 결과 파일: " + path);
 
+        if (logDecisions)
+        {
+            string dpath = Path.Combine(dir, string.Format("decisions_{0}_{1:yyyyMMdd_HHmmss}.csv", runLabel, DateTime.Now));
+            decisionWriter = new StreamWriter(dpath, false, new UTF8Encoding(false));
+            decisionWriter.WriteLine("run,condition,match,seed,t," + string.Join(",", CombatFeatures.Names) + ",self_action,chosen,in_combo");
+            foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain })
+                if (b != null) b.Decided += OnDecided;
+            UnityEngine.Debug.Log("[MatchRunner] 결정 기록: " + dpath);
+        }
+
         yield return null;
         Application.runInBackground = true;   // 다른 창을 눌러도 실험 계속 진행
         Time.timeScale = timeScale;
@@ -132,6 +148,7 @@ public class MatchRunner : MonoBehaviour
 
         Time.timeScale = 1f;
         writer.Close();
+        if (decisionWriter != null) { decisionWriter.Close(); decisionWriter = null; }
         writer = null;
         finished = true;
         UnityEngine.Debug.Log("[MatchRunner] 전체 실험 완료: " + path);
@@ -190,6 +207,7 @@ public class MatchRunner : MonoBehaviour
         botBrain.enabled = true;
 
         float t0 = Time.time;
+        matchStartTime = t0;
         List<float> frameTimes = new List<float>(8192);
         while (!npcHealth.IsDead && !botHealth.IsDead && Time.time - t0 < matchTimeout)
         {
@@ -283,8 +301,21 @@ public class MatchRunner : MonoBehaviour
         return string.IsNullOrEmpty(s) ? "" : s.Replace(",", " ").Trim();
     }
 
+    private void OnDecided(NpcBrain brain, float[] f, ActionClass chosen, bool inCombo)
+    {
+        if (decisionWriter == null || !brain.enabled) return;
+        CultureInfo ci = CultureInfo.InvariantCulture;
+        StringBuilder sb = new StringBuilder(256);
+        sb.Append(runLabel).Append(',').Append(currentCondition).Append(',').Append(currentIndex).Append(',')
+          .Append(baseSeed + currentIndex).Append(',').Append((Time.time - matchStartTime).ToString("F3", ci));
+        foreach (float v in f) sb.Append(',').Append(v.ToString("0.#####", ci));
+        sb.Append(',').Append(brain.executor.CurrentAction).Append(',').Append(chosen).Append(',').Append(inCombo ? 1 : 0);
+        decisionWriter.WriteLine(sb.ToString());
+    }
+
     private void OnApplicationQuit()
     {
+        if (decisionWriter != null) { decisionWriter.Flush(); decisionWriter.Close(); decisionWriter = null; }
         if (writer != null) { writer.Flush(); writer.Close(); }
     }
 }
