@@ -31,6 +31,8 @@ public class MatchRunner : MonoBehaviour
     [Tooltip("최종 측정(FPS/지연)은 반드시 1로 실행하세요")]
     public float timeScale = 1f;
     public string runLabel = "main";
+    [Tooltip("모든 Brain·Executor에 똑같이 적용되는 공격 사거리(m). 캐릭터 Scale에 맞춰 설정 (NavMeshAgent 반지름 × Scale × 2 = 최소 접근 거리보다 커야 함)")]
+    public float attackRange = 4f;
 
     private NpcActionExecutor npcExec, botExec;
     private CombatAgentState npcState, botState;
@@ -40,6 +42,17 @@ public class MatchRunner : MonoBehaviour
     private MLBrain mlBrain;
     private ReferenceBotBrain botBrain;
     private StreamWriter writer;
+
+    [Header("진행 표시")]
+    public bool showProgress = true;
+
+    // 진행 상황 (화면 표시용)
+    private int totalMatches, doneMatches;
+    private Condition currentCondition;
+    private int currentIndex;
+    private float experimentStartRealtime;
+    private readonly Dictionary<Condition, int[]> tally = new Dictionary<Condition, int[]>();   // win, draw, loss
+    private bool finished;
 
     private IEnumerator Start()
     {
@@ -62,6 +75,12 @@ public class MatchRunner : MonoBehaviour
             if (b != null) b.opponent = botState;
         botBrain.opponent = npcState;
 
+        // 공격 사거리를 한 곳에서 통일
+        foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain, botBrain })
+            if (b != null) b.attackRange = attackRange;
+        npcExec.SetAttackRange(attackRange);
+        botExec.SetAttackRange(attackRange);
+
         // 실험 중 자동 회복·자동 리스폰 끄기
         npcHealth.autoRegen = false; npcHealth.autoRespawn = false;
         botHealth.autoRegen = false; botHealth.autoRespawn = false;
@@ -76,24 +95,33 @@ public class MatchRunner : MonoBehaviour
         string counts = string.Join(",", Enum.GetNames(typeof(ActionClass)).Select(n => "cnt_" + n));
         writer.WriteLine("run,condition,match,seed,outcome,duration_s,npc_hp_end,opp_hp_end,npc_hits,opp_hits," +
                          "frames,fps_mean,fps_p1,decisions,latency_mean_ms,latency_sd_ms,latency_max_ms,fallbacks," +
-                         counts + ",time_scale,device,gpu,unity_version");
+                         counts + ",time_scale,attack_range,device,gpu,unity_version");
         writer.Flush();
         UnityEngine.Debug.Log("[MatchRunner] 결과 파일: " + path);
 
         yield return null;
+        Application.runInBackground = true;   // 다른 창을 눌러도 실험 계속 진행
         Time.timeScale = timeScale;
+        totalMatches = conditions.Length * matchesPerCondition;
+        doneMatches = 0;
+        foreach (Condition c in conditions) tally[c] = new int[3];
+        experimentStartRealtime = Time.realtimeSinceStartup;
 
         foreach (Condition c in conditions)
         {
             for (int i = 0; i < matchesPerCondition; i++)
             {
+                currentCondition = c;
+                currentIndex = i;
                 yield return RunMatch(c, i);
+                doneMatches++;
             }
         }
 
         Time.timeScale = 1f;
         writer.Close();
         writer = null;
+        finished = true;
         UnityEngine.Debug.Log("[MatchRunner] 전체 실험 완료: " + path);
     }
 
@@ -167,6 +195,7 @@ public class MatchRunner : MonoBehaviour
         if (npcHealth.IsDead && !botHealth.IsDead) outcome = "loss";
         else if (botHealth.IsDead && !npcHealth.IsDead) outcome = "win";
         else outcome = "draw";
+        if (tally.TryGetValue(c, out int[] t)) t[outcome == "win" ? 0 : outcome == "draw" ? 1 : 2]++;
 
         // FPS
         float totalReal = frameTimes.Sum();
@@ -197,13 +226,44 @@ public class MatchRunner : MonoBehaviour
         sb.Append(fallbacks);
         foreach (int n in npcExec.ExecutedCounts) sb.Append(',').Append(n);
         sb.Append(',').Append(timeScale.ToString("F2", ci));
+        sb.Append(',').Append(attackRange.ToString("F2", ci));
         sb.Append(',').Append(Clean(SystemInfo.processorType));
         sb.Append(',').Append(Clean(SystemInfo.graphicsDeviceName));
         sb.Append(',').Append(Application.unityVersion);
         writer.WriteLine(sb.ToString());
         writer.Flush();
 
-        UnityEngine.Debug.Log(string.Format("[MatchRunner] {0} #{1}: {2} ({3:F1}s)", c, index, outcome, duration));
+        UnityEngine.Debug.Log(string.Format("[MatchRunner] ({0}/{1}) {2} #{3}: {4} ({5:F1}s)",
+            doneMatches + 1, totalMatches, c, index, outcome, duration));
+    }
+
+    private void OnGUI()
+    {
+        if (!showProgress || totalMatches == 0) return;
+        float elapsed = Time.realtimeSinceStartup - experimentStartRealtime;
+        string eta = "-";
+        if (doneMatches > 0 && !finished)
+        {
+            float remain = elapsed / doneMatches * (totalMatches - doneMatches);
+            eta = FormatTime(remain);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.AppendFormat("[MatchRunner] {0}  {1}\n", runLabel, finished ? "완료" : "진행 중");
+        sb.AppendFormat("전체: {0} / {1} 판 ({2:F0}%)\n", doneMatches, totalMatches, 100f * doneMatches / totalMatches);
+        if (!finished) sb.AppendFormat("현재: {0}  {1} / {2}\n", currentCondition, currentIndex + 1, matchesPerCondition);
+        sb.AppendFormat("경과: {0}   남은 예상: {1}\n", FormatTime(elapsed), eta);
+        foreach (Condition c in conditions)
+        {
+            int[] t = tally[c];
+            sb.AppendFormat("{0,-6} 승 {1}  무 {2}  패 {3}\n", c, t[0], t[1], t[2]);
+        }
+        GUI.Box(new Rect(Screen.width - 330, 10, 320, 40 + 18 * (4 + conditions.Length)), sb.ToString());
+    }
+
+    private static string FormatTime(float sec)
+    {
+        TimeSpan ts = TimeSpan.FromSeconds(sec);
+        return string.Format("{0}:{1:D2}:{2:D2}", (int)ts.TotalHours, ts.Minutes, ts.Seconds);
     }
 
     private static string Clean(string s)

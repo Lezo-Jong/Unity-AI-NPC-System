@@ -95,31 +95,49 @@ public class HealthSystem : MonoBehaviour
         isDead = true;
         Debug.Log($"{gameObject.name} 사망!");
         OnDeath?.Invoke();
-        if (autoRespawn) StartCoroutine(RespawnCoroutine());
+        if (autoRespawn) Runner.StartCoroutine(RespawnCoroutine());
     }
+
+    // 사망 중에는 이 오브젝트가 꺼지므로, 리스폰 타이머는 항상 켜져 있는 별도 오브젝트에서 돌립니다.
+    // (자기 자신에서 돌리면 SetActive(false) 순간 코루틴도 멈춰서 영원히 부활하지 않음)
+    private static MonoBehaviour runner;
+    private static MonoBehaviour Runner
+    {
+        get
+        {
+            if (runner == null)
+            {
+                GameObject go = new GameObject("[RespawnRunner]");
+                go.hideFlags = HideFlags.HideInHierarchy;
+                runner = go.AddComponent<RespawnRunner>();
+            }
+            return runner;
+        }
+    }
+
+    private class RespawnRunner : MonoBehaviour { }
 
     private IEnumerator RespawnCoroutine()
     {
         yield return new WaitForSeconds(0.2f);
+        if (this == null || !isDead) yield break;
         gameObject.SetActive(false);
         yield return new WaitForSeconds(respawnDelay);
-
-        transform.position = spawnPoint;
-        currentHP = maxHP;
-        isDead = false;
-
-        gameObject.SetActive(true);
-        Debug.Log($"{gameObject.name} 리스폰 완료!");
+        if (this == null || !isDead) yield break;
+        Respawn();
     }
 
     public void Respawn()
     {
         isDead = false;
+        IsBlocking = false;
         currentHP = maxHP;
-        transform.position = spawnPoint;
-        transform.rotation = spawnRotation;
+        lastDamageTime = -999f;
+        transform.SetPositionAndRotation(spawnPoint, spawnRotation);   // 꺼진 상태에서 옮기므로 CharacterController/NavMeshAgent도 켜질 때 이 위치를 따름
 
         gameObject.SetActive(true);
+        if (regenCoroutine != null) StopCoroutine(regenCoroutine);
+        regenCoroutine = StartCoroutine(AutoRegen());   // 꺼질 때 멈춘 자동 회복 다시 시작
         OnHealthChanged?.Invoke(currentHP, maxHP);
 
         if (animator != null)

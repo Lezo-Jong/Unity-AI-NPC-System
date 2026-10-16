@@ -2,7 +2,6 @@
 // 추적 → (상대 공격 시) 방어 → (쿨다운 후) Slash→Slash2→Slash3 콤보 → 대기
 public class FSMBrain : NpcBrain
 {
-    public float attackRange = 2.5f;
     public float comboCooldown = 1.0f;
 
     private int comboStep;

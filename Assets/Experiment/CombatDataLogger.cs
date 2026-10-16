@@ -73,6 +73,8 @@ public class CombatDataLogger : MonoBehaviour
         UnityEngine.Debug.Log("[CombatDataLogger] 저장 완료 (" + RowCount + " rows): " + FilePath);
     }
 
-    private void OnDisable() { Close(); }
+    // 리스폰 때 HealthSystem이 오브젝트를 잠깐 껐다 켜므로 OnDisable에서는 닫지 않고 저장만 합니다.
+    private void OnDisable() { writer?.Flush(); }
+    private void OnDestroy() { Close(); }
     private void OnApplicationQuit() { Close(); }
 }

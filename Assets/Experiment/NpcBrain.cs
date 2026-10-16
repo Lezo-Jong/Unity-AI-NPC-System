@@ -11,6 +11,8 @@ public abstract class NpcBrain : MonoBehaviour
     public CombatAgentState self;
     public CombatAgentState opponent;
     public float decisionHz = 10f;
+    [Tooltip("이 거리(m) 안이면 공격/방어, 밖이면 추적. MatchRunner가 실행 시 덮어씁니다.")]
+    public float attackRange = 2.5f;
 
     public readonly List<double> LatenciesMs = new List<double>();
     public string Status { get; private set; } = "대기";

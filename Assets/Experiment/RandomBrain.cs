@@ -3,7 +3,6 @@ using UnityEngine;
 // Baseline 1: 사거리 밖이면 추적, 사거리 안이면 9개 행동 중 균등 무작위 선택.
 public class RandomBrain : NpcBrain
 {
-    public float attackRange = 2.5f;
 
     private static readonly ActionClass[] InRange =
     {

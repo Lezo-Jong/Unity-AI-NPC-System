@@ -88,6 +88,13 @@ public class NpcActionExecutor : MonoBehaviour
         }
     }
 
+    public void SetAttackRange(float range)
+    {
+        attackRange = range;
+        if (agent == null) agent = GetComponent<NavMeshAgent>();
+        agent.stoppingDistance = Mathf.Max(0.1f, attackRange - stopMargin);
+    }
+
     public void ResetCounts()
     {
         for (int i = 0; i < ExecutedCounts.Length; i++) ExecutedCounts[i] = 0;

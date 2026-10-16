@@ -9,7 +9,6 @@ public class MLBrain : NpcBrain
 {
     public ModelAsset modelAsset;
     public BackendType backendType = BackendType.CPU;
-    public float attackRange = 2.5f;
 
     public int FallbackCount { get; private set; }
 
@@ -23,6 +22,13 @@ public class MLBrain : NpcBrain
         {
             Model model = ModelLoader.Load(modelAsset);
             worker = new Worker(model, backendType);
+
+            // Warm-up: 첫 실행의 준비 비용이 결정 지연 측정에 섞이지 않도록 미리 한 번 실행
+            using (Tensor<float> dummy = new Tensor<float>(new TensorShape(1, CombatFeatures.Count), new float[CombatFeatures.Count]))
+            {
+                worker.Schedule(dummy);
+                (worker.PeekOutput() as Tensor<float>)?.DownloadToArray();
+            }
         }
         catch (Exception e)
         {

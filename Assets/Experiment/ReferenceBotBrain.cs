@@ -4,7 +4,6 @@ using UnityEngine;
 // 확률 규칙 + 시드 고정으로 매 판 같은 조건을 재현합니다.
 public class ReferenceBotBrain : NpcBrain
 {
-    public float attackRange = 2.5f;
     [Range(0f, 1f)] public float pBlockWhenAttacked = 0.5f;
     [Range(0f, 1f)] public float pAttack = 0.4f;
     [Range(0f, 1f)] public float pEvade = 0.1f;
