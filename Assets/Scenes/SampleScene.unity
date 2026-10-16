@@ -3773,7 +3773,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &260305582
 Transform:
   m_ObjectHideFlags: 0
@@ -4064,8 +4064,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.3072658, y: -0.005235219, z: 0.0016904062, w: 0.9516079}
-  m_LocalPosition: {x: 3.2, y: 27.7, z: -24.2}
+  m_LocalRotation: {x: 0.24649908, y: 0.5681434, z: -0.18344854, w: 0.76341206}
+  m_LocalPosition: {x: -20.129576, y: 27.78476, z: -7.6269455}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6696,7 +6696,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!95 &680183923
 Animator:
   serializedVersion: 7
@@ -6765,8 +6765,6 @@ MonoBehaviour:
   gravity: -9.81
   cameraFollow: {fileID: 330585546}
   mouseSensitivity: 2
-  comboInputBufferTime: 0.7
-  comboResetTime: 1.2
 --- !u!143 &680183928
 CharacterController:
   m_ObjectHideFlags: 0
@@ -6908,7 +6906,7 @@ MonoBehaviour:
   self: {fileID: 680183934}
   opponent: {fileID: 1032127253}
   participantId: P01
-  sessionIndex: 1
+  sessionIndex: 7
   opponentType: RandomBrain
   logHz: 10
 --- !u!43 &820553677
@@ -8127,7 +8125,7 @@ MonoBehaviour:
   m_StreamingVersion: 20241001
   m_LegacyPriority: 0
   Target:
-    TrackingTarget: {fileID: 680183929}
+    TrackingTarget: {fileID: 1032127239}
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
@@ -8158,8 +8156,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 941907849}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.30726582, y: -0.0052352166, z: 0.0016903984, w: 0.9516078}
-  m_LocalPosition: {x: 3.2, y: 27.7, z: -24.2}
+  m_LocalRotation: {x: 0.24649909, y: 0.56814337, z: -0.18344851, w: 0.7634121}
+  m_LocalPosition: {x: -20.129576, y: 27.78476, z: -7.6269455}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8484,7 +8482,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RandomBrain
   executor: {fileID: 1032127252}
   self: {fileID: 0}
-  opponent: {fileID: 680183934}
+  opponent: {fileID: 0}
   decisionHz: 10
   attackRange: 4
 --- !u!114 &1032127250
@@ -8494,14 +8492,14 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1032127232}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8db7e3b3097f0b54caf2a26c70f75898, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FSMBrain
   executor: {fileID: 1032127252}
   self: {fileID: 0}
-  opponent: {fileID: 680183934}
+  opponent: {fileID: 0}
   decisionHz: 10
   attackRange: 4
   comboCooldown: 1
@@ -8512,7 +8510,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1032127232}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6128f7e93f392e44fbd4be9514184fa9, type: 3}
   m_Name: 
@@ -8524,6 +8522,8 @@ MonoBehaviour:
   attackRange: 2.5
   modelAsset: {fileID: 5022602860645237092, guid: 747c1d128a0375949be27696f1afd7b6, type: 3}
   backendType: 512
+  sampleAction: 1
+  logDecisions: 0
 --- !u!114 &1032127252
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8542,12 +8542,15 @@ MonoBehaviour:
   hitRadius: 1.5
   minDamage: 5
   maxDamage: 12
-  slashHitDelay: 0.5
+  slashHitTime: 0.58
+  slash2HitTime: 0.78
+  slash3HitTime: 1.32
+  crouchSlashHitTime: 0.55
   actionDuration: 1
-  comboWindow: 1
+  enterTimeout: 0.8
   turnSpeed: 540
   stopMargin: 1
-  applyDamage: 0
+  applyDamage: 1
   hitFacingDot: 0.3
   debugLog: 1
   showOverlay: 1
@@ -9020,7 +9023,7 @@ RectTransform:
   m_Father: {fileID: 1706587504}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 5.4, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -9379,7 +9382,7 @@ RectTransform:
   m_Father: {fileID: 1054156970}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 5.4, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -9499,7 +9502,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1640355720
 Transform:
   m_ObjectHideFlags: 0
@@ -9532,13 +9535,15 @@ MonoBehaviour:
   npcSpawn: {fileID: 924411287}
   opponentSpawn: {fileID: 260305582}
   conditions: 000000000100000002000000
-  matchesPerCondition: 10
+  matchesPerCondition: 100
   baseSeed: 1000
   matchTimeout: 120
   settleTime: 0.5
   timeScale: 1
-  runLabel: pilot
+  runLabel: run1
   attackRange: 4
+  disableAgentAvoidance: 1
+  logDecisions: 1
   showProgress: 1
 --- !u!1 &1653747147
 GameObject:
@@ -9558,7 +9563,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1653747148
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9669,7 +9674,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1683101833
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9688,9 +9693,12 @@ MonoBehaviour:
   hitRadius: 1.5
   minDamage: 5
   maxDamage: 12
-  slashHitDelay: 0.5
+  slashHitTime: 0.58
+  slash2HitTime: 0.78
+  slash3HitTime: 1.32
+  crouchSlashHitTime: 0.55
   actionDuration: 1
-  comboWindow: 1
+  enterTimeout: 0.8
   turnSpeed: 540
   stopMargin: 1
   applyDamage: 1
