@@ -192,6 +192,13 @@ def human_likeness(args):
         lo, hi = np.percentile(diff, [2.5, 97.5])
         print("  %s − %s: %.3f [%.3f–%.3f]%s" % (a, b, diff.mean(), lo, hi, "  *" if lo > 0 or hi < 0 else ""))
 
+    if dec["run"].nunique() > 1:
+        print("\n반복 실험(run)별 사람다움 JS divergence → 평균 ± SD")
+        per_run = dec.groupby(["condition", "run"])["label"].apply(lambda s: js(dist_vec(s), h)).unstack()
+        print(per_run.loc[conds].round(3).to_string())
+        for c in conds:
+            print("  %s: %.3f ± %.3f (runs=%d)" % (c, per_run.loc[c].mean(), per_run.loc[c].std(ddof=1), per_run.shape[1]))
+
     print("\n행동 분포 (%)")
     tab = pd.DataFrame({c: dist_vec(dec.loc[dec["condition"] == c, "label"]) * 100 for c in conds}, index=ACTIONS)
     tab["사람"] = h * 100

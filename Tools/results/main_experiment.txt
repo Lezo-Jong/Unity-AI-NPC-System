@@ -52,6 +52,16 @@ ML         16.0  14.0  22.0
   Random − ML: 0.040 [0.029–0.051]  *
   FSM − ML: 0.181 [0.172–0.189]  *
 
+반복 실험(run)별 사람다움 JS divergence → 평균 ± SD
+run         run1   run2   run3
+condition                     
+Random     0.122  0.128  0.118
+FSM        0.263  0.268  0.260
+ML         0.079  0.078  0.087
+  Random: 0.123 ± 0.005 (runs=3)
+  FSM: 0.263 ± 0.004 (runs=3)
+  ML: 0.082 ± 0.005 (runs=3)
+
 행동 분포 (%)
              Random   FSM    ML    사람
 Idle           27.2  53.6  23.3  36.1
@@ -64,13 +74,3 @@ CrouchBlock     7.7   2.1   8.4   9.6
 Jump            7.1   0.0   5.6   3.4
 Crouch          7.7   0.0  16.7  28.3
 CrouchSlash     7.3   0.0   7.0   4.3
-
-반복 실험(run)별 사람다움 JS divergence → 평균 ± SD
-run         run1   run2   run3
-condition                     
-Random     0.122  0.128  0.118
-FSM        0.263  0.268  0.260
-ML         0.079  0.078  0.087
-  Random: 0.123 ± 0.005 (runs=3)
-  FSM: 0.263 ± 0.004 (runs=3)
-  ML: 0.082 ± 0.005 (runs=3)
