@@ -1,21 +1,26 @@
 # Unity-AI-NPC-System
 
-⚠️ 이 프로젝트의 한계(학습된 모델이 NPC 행동에 연결되지 않음)를 분석하고 다시 설계한 후속 연구는 LLM-unity-DualArena에 있습니다.
+후속 연구(LLM 기반 NPC)는 LLM-unity-DualArena에 있습니다.
 
 AI-driven NPC behavior system in Unity using PyTorch, ONNX, and Unity Inference Engine (formerly Sentis).
 
 ## Overview
 
-This project implements an intelligent NPC combat system
-for immersive PVP interactions in Unity.
+This project implements an NPC combat system for PvP interactions in Unity.
+A multi-layer perceptron is trained on logged human play (behavioral cloning) and drives the NPC in real time.
+The learned NPC is compared with a random-action baseline and a finite state machine (FSM) in controlled, seeded matches.
+
+- Unity 6.3 LTS (6000.3.26f1), Unity Inference Engine 2.6.1
+- PyTorch 2.8.0, ONNX opset 15
 
 ## Features
 
-- Player behavior logging
-- Deep learning model training
-- ONNX integration
-- Real-time AI inference
-- Animation-based combat system
+- Player behavior logging (`CombatDataLogger`, 10 Hz, 19 features + 10 action classes)
+- Deep learning model training (`Tools/train.py`, decision-point samples, session-grouped cross-validation)
+- ONNX integration (`MLBrain`, CPU backend, softmax sampling)
+- Real-time AI inference (0.1 ms per decision)
+- Animation-based combat system (the player and the NPCs follow the same animation-lock and combo rules)
+- Automated evaluation (`MatchRunner`, `Tools/analyze_matches.py`)
 
 ## System Architecture
 <img width="331" height="561" alt="System Architecture" src="https://github.com/user-attachments/assets/ce38f12b-8266-4b79-86d9-50fae2bcca60" />
@@ -34,13 +39,47 @@ for immersive PVP interactions in Unity.
 
 
 ## Result
-- CSV column
-<img width="237" height="71" alt="CSV" src="https://github.com/user-attachments/assets/a5614c4b-f130-41a9-b9df-68284918bffb" />
 
-- Test Accuracy: 93.47%
-<img width="198" height="67" alt="PyTorch" src="https://github.com/user-attachments/assets/f9561634-8630-46ad-828b-061d44fb70a3" />
+### Action prediction
+
+Session-grouped 5-fold cross-validation × 5 seeds (25 runs, mean ± SD). The data are from one participant: 7 sessions, 6,274 decision samples.
+
+| Metric | MLP | Majority-class baseline |
+|---|---|---|
+| Macro-F1 | 0.264 ± 0.028 | 0.055 ± 0.009 |
+| Balanced accuracy | 0.298 ± 0.032 | 0.100 |
+| Accuracy | 0.311 ± 0.042 | 0.370 ± 0.062 |
+
+The earlier figure of 93.47% test accuracy came from a single random split in which the current action leaked into the inputs, so it has been withdrawn.
+
+### Gameplay evaluation
+
+The setup was 900 matches: 3 runs × 3 controllers × 100 matches against a fixed reference opponent. Values are mean ± SD unless noted otherwise.
+
+| Metric | Random | FSM | ML (proposed) |
+|---|---|---|---|
+| Win rate [95% CI] | 24.7% [20.1–29.8] | **83.3%** [78.7–87.1] | 17.3% [13.5–22.0] |
+| Behavioral entropy (bits) | 1.29 ± 0.24 | 1.70 ± 0.20 | **1.90 ± 0.20** |
+| Combat entropy, excl. Move (bits) | **2.42 ± 0.33** | 1.88 ± 0.27 | 1.97 ± 0.34 |
+| JS divergence to human, lower = more human-like [95% CI] | 0.122 [0.114–0.129] | 0.263 [0.259–0.266] | **0.081 [0.074–0.090]** |
+| Decision latency (ms) | 0.002 | 0.002 | 0.099 |
+
+The learned NPC is the most human-like controller. All pairwise differences are significant, and the ranking is the same in every run. It is not the strongest controller, though: it reproduces a human play style rather than maximizing win rate.
+
+Full reports are in `Tools/results/`.
+
+## Reproduce
+
+The raw data are in `data/`; see `data/README.md` for details. Run these commands from the project root:
+
+```bash
+python Tools/train.py --data data/human --out Assets/player_ai.onnx
+python Tools/analyze_matches.py "data/matches/matches_run*.csv" --decisions "data/matches/decisions_run*.csv" --human data/human
+```
 
 ## Demo Video
+
+This video shows the previous version.
 
 (https://drive.google.com/file/d/1mm_qhzdvw99q1qXaASs0vNn-2HXXiql6/view?usp=drive_link)
 
@@ -49,3 +88,4 @@ for immersive PVP interactions in Unity.
 - Reinforcement Learning
 - XR Interaction
 - Adaptive NPC Behavior
+- User study (blinded) and demonstrations from multiple players
