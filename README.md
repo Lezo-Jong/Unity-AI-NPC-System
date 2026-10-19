@@ -1,6 +1,8 @@
 # Unity-AI-NPC-System
 
-후속 연구(LLM 기반 NPC)는 LLM-unity-DualArena에 있습니다.
+> **2026-10 업데이트:** 논문 수정(리뷰어 의견 대응)을 위해 Unity 6.3 LTS와 Unity Inference Engine으로 이전하고, 데이터를 다시 수집해 재학습과 통제 실험(900판)을 진행했습니다. 이전 버전의 결과(테스트 정확도 93.47%)는 평가 방식의 문제로 철회했습니다.
+>
+> 평가 설계는 후속 연구 [LLM-unity-DualArena](https://github.com/Lezo-Jong/LLM-unity-DualArena)의 방식을 따랐습니다. Brain 교체 구조와 공통 실행기, 고정 시드의 대본 상대, 조건 라벨이 붙은 로그, 원본 데이터 공개가 그 예입니다. 다만 NPC의 의사결정은 LLM이 아니라, 이 프로젝트의 원래 방식인 사람 플레이 로그 기반 행동 모방(MLP)입니다.
 
 AI-driven NPC behavior system in Unity using PyTorch, ONNX, and Unity Inference Engine (formerly Sentis).
 
