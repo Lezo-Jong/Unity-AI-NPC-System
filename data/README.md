@@ -68,6 +68,12 @@ Settings used in every run:
 - the chosen action (`chosen`)
 - whether the decision was a combo follow-up opportunity (`in_combo`)
 
+## `runtime_check/`: Unity vs. Python output check (Section 3.2)
+
+Four logs written by `MLBrain` with **Log Decisions** on, during preliminary ML matches with the final `player_ai.onnx` (4,050 decisions). Each row holds the 19 inputs, the 10 softmax probabilities computed in Unity (rounded to 4 decimals), and the chosen action.
+
+`python Tools/check_onnx_consistency.py` recomputes the probabilities in Python (`onnx.reference`) from the same inputs. Result: maximum absolute difference 5.5 × 10⁻⁵ (rounding alone allows up to 5 × 10⁻⁵), and the most probable action matches in all 4,050 decisions.
+
 ## Reproduce
 
 Run these from the project root. Each one is a single command.
