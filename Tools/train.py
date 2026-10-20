@@ -1,5 +1,5 @@
 """
-NPC 행동 분류 MLP 학습 + 반복 평가 + ONNX 내보내기 (Unity Inference Engine용).
+NPC 행동 분류 MLP 학습 + 반복 평가 + ONNX 내보내기 (Unity Sentis 2.6, 패키지 com.unity.ai.inference용).
 
 - 입력: CombatDataLogger가 저장한 CSV (19 features + action 라벨, 10 classes)
 - 학습 표본 (--target decision, 기본값): NPC가 실제로 결정을 내리는 순간과 같은 조건으로 만듭니다.
@@ -7,8 +7,11 @@ NPC 행동 분류 MLP 학습 + 반복 평가 + ONNX 내보내기 (Unity Inferenc
     * Slash / Slash2가 시작된 순간의 상황 → 다음 콤보 단계로 이어졌으면 그 단계, 아니면 Idle(콤보 종료)
   같은 순간의 행동을 라벨로 쓰면(--target current) self_cur_* · self_speed 입력에 정답이 섞여
   "다음에 할 행동"이 아니라 "지금 하는 행동"을 배우게 되므로 기본값으로 쓰지 않습니다.
-- 평가: 세션 단위 GroupKFold(k) × 여러 시드 → accuracy / macro-F1 평균 ± SD
-        (같은 세션의 연속 프레임이 train/test에 동시에 들어가는 누수를 막기 위함)
+- 평가: 로그 파일 단위 GroupKFold(k) × 여러 시드 → accuracy / macro-F1 / balanced accuracy 평균 ± SD
+        (같은 파일의 연속 프레임이 train/test에 동시에 들어가는 누수를 막기 위함)
+        GroupKFold는 그룹(파일)을 크기 순서로 폴드에 배정하므로 분할은 모든 시드에서 같습니다.
+        시드는 신경망 초기값과 미니배치 순서만 바꿉니다. 따라서 반복 실행들은 서로 독립이 아니고,
+        보고하는 95% CI(평균 ± 1.96·SD/√n, 정규근사)는 근사값으로 해석해야 합니다.
 - 내보내기: 정규화(mean/std)를 그래프 안에 포함, 입력 [batch,19] → 출력 [batch,10] logits
 
 사용 예:
@@ -169,25 +172,21 @@ def main():
         print("결정 시점 표본: 원본 %d행 → %d개 (horizon %d틱)" % (n_raw, len(df), args.horizon))
     x = df[FEATURES].to_numpy(np.float32)
     y = df["action"].to_numpy(np.int64)
-    groups = df["session_id"].to_numpy()
-    n_sessions = len(np.unique(groups))
-    folds = min(args.folds, n_sessions)
+    groups = df["session_id"].to_numpy()   # session_id는 로그 파일마다 고유 → 그룹 = 로그 파일
+    n_files = len(np.unique(groups))
+    folds = min(args.folds, n_files)
     if folds < 2:
-        raise SystemExit("세션이 %d개뿐입니다. 교차검증에는 최소 2개 세션이 필요합니다." % n_sessions)
+        raise SystemExit("로그 파일이 %d개뿐입니다. 교차검증에는 최소 2개가 필요합니다." % n_files)
 
-    print("파일 %d개, 샘플 %d개, 세션 %d개, 참가자 %d명" %
-          (len(files), len(df), n_sessions, df["participant_id"].nunique()))
+    print("파일 %d개, 샘플 %d개, 참가자 %d명" % (n_files, len(df), df["participant_id"].nunique()))
     print("클래스 분포:", {ACTIONS[i]: int(c) for i, c in enumerate(np.bincount(y, minlength=len(ACTIONS)))})
 
     rows = []
     cm_total = np.zeros((len(ACTIONS), len(ACTIONS)), dtype=np.int64)
+    # 분할은 고정(GroupKFold는 크기 순서 배정), 시드는 모델 초기값과 미니배치 순서만 바꿈
+    splits = list(GroupKFold(n_splits=folds).split(x, y, groups))
     for seed in args.seeds:
-        # 시드마다 세션→fold 배정을 섞어 fold 분할 자체의 변동도 반영
-        rng = np.random.RandomState(seed)
-        uniq = np.unique(groups)
-        shuffled = dict(zip(uniq, rng.permutation(len(uniq))))
-        g_shuffled = np.array([shuffled[s] for s in groups])
-        for k, (tr, te) in enumerate(GroupKFold(n_splits=folds).split(x, y, g_shuffled)):
+        for k, (tr, te) in enumerate(splits):
             model = fit(x[tr], y[tr], seed, args.epochs, args.lr, args.batch, args.hidden, args.class_weight)
             pred = predict(model, x[te])
             majority = np.bincount(y[tr], minlength=len(ACTIONS)).argmax()
@@ -197,6 +196,7 @@ def main():
                 "macro_f1": f1_score(y[te], pred, average="macro", labels=np.unique(y[te]), zero_division=0),
                 "balanced_acc": balanced_accuracy_score(y[te], pred),
                 "majority_baseline_acc": float((y[te] == majority).mean()),
+                "majority_baseline_balanced_acc": balanced_accuracy_score(y[te], np.full(len(te), majority)),
                 "majority_baseline_macro_f1": f1_score(y[te], np.full(len(te), majority), average="macro",
                                                        labels=np.unique(y[te]), zero_division=0),
             })
@@ -207,15 +207,21 @@ def main():
     res = pd.DataFrame(rows)
     summary = {
         "n_runs": len(res), "folds": folds, "seeds": args.seeds,
-        "n_samples": int(len(df)), "n_sessions": int(n_sessions),
+        "n_samples": int(len(df)), "n_log_files": int(n_files),
+        "split": "GroupKFold by log file; identical partitions for every seed (seeds vary initialization and batch order)",
+        "ci95_method": "mean ± 1.96·SD/sqrt(n_runs), normal approximation; runs share partitions, so approximate",
         "n_participants": int(df["participant_id"].nunique()),
         "class_weight": args.class_weight, "target": args.target, "horizon": args.horizon, "n_raw_rows": int(n_raw),
     }
-    for col in ["accuracy", "balanced_acc", "macro_f1", "majority_baseline_acc", "majority_baseline_macro_f1"]:
+    for col in ["accuracy", "balanced_acc", "macro_f1", "majority_baseline_acc", "majority_baseline_balanced_acc",
+                "majority_baseline_macro_f1"]:
         m, s = res[col].mean(), res[col].std(ddof=1)
         ci = 1.96 * s / np.sqrt(len(res))
         summary[col] = {"mean": m, "sd": s, "ci95": [m - ci, m + ci]}
         print("%-28s %.4f ± %.4f (95%% CI %.4f–%.4f)" % (col, m, s, m - ci, m + ci))
+    below = int((res["accuracy"] < res["majority_baseline_acc"]).sum())
+    summary["runs_accuracy_below_majority"] = below
+    print("accuracy가 다수 클래스 기준보다 낮은 실행: %d / %d" % (below, len(res)))
     summary["confusion_matrix"] = {"labels": ACTIONS, "counts": cm_total.tolist()}
 
     os.makedirs(os.path.dirname(args.report), exist_ok=True)

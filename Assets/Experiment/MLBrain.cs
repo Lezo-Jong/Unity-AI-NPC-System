@@ -5,7 +5,7 @@ using System.Text;
 using Unity.InferenceEngine;
 using UnityEngine;
 
-// 제안 모델: ONNX(MLP) 추론으로 다음 행동을 선택합니다. (Unity Inference Engine, 구 Sentis)
+// 제안 모델: ONNX(MLP) 추론으로 다음 행동을 선택합니다. (Unity Sentis 2.6, 패키지 com.unity.ai.inference; C# 네임스페이스는 Unity.InferenceEngine)
 // 입력 정규화는 ONNX 그래프 안에 포함되어 있으므로 원시 feature를 그대로 넣습니다.
 // 추론 오류 시 FSM 규칙으로 대체(fallback)하고 횟수를 기록합니다.
 public class MLBrain : NpcBrain

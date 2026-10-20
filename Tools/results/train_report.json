@@ -9,7 +9,9 @@
     4
   ],
   "n_samples": 6274,
-  "n_sessions": 9,
+  "n_log_files": 9,
+  "split": "GroupKFold by log file; identical partitions for every seed (seeds vary initialization and batch order)",
+  "ci95_method": "mean ± 1.96·SD/sqrt(n_runs), normal approximation; runs share partitions, so approximate",
   "n_participants": 1,
   "class_weight": "sqrt",
   "target": "decision",
@@ -47,6 +49,14 @@
       0.39408382175760126
     ]
   },
+  "majority_baseline_balanced_acc": {
+    "mean": 0.10222222222222223,
+    "sd": 0.00453609211626514,
+    "ci95": [
+      0.10044407411264629,
+      0.10400037033179817
+    ]
+  },
   "majority_baseline_macro_f1": {
     "mean": 0.05507718080363525,
     "sd": 0.008770654230933076,
@@ -55,6 +65,7 @@
       0.05851527726216102
     ]
   },
+  "runs_accuracy_below_majority": 17,
   "confusion_matrix": {
     "labels": [
       "Idle",

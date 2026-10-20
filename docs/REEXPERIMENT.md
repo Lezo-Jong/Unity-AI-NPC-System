@@ -1,4 +1,4 @@
-# 재실험 가이드 (Unity 6.3 LTS + Inference Engine)
+# 재실험 가이드 (Unity 6.3 LTS + Sentis)
 
 리뷰어 코멘트 대응을 위한 재실험 절차입니다.
 
@@ -11,12 +11,12 @@
 | 스크립트 | `NNModel`, `IWorker`, `WorkerFactory` | `ModelAsset`, `Worker`, `BackendType` (`MLBrain.cs`) |
 | 모델 출력 | 14개 뉴런 (기존 `player_ai.onnx`) | **10개 뉴런 = 행동 클래스 10개** (`Tools/train.py`로 재학습) |
 
-> 논문에서는 "Barracuda" 대신 **"Unity Inference Engine 2.6.1 (formerly Sentis)"**라고 쓰는 것이 정확합니다.
+> 논문에서는 "Barracuda" 대신 **"Unity Sentis 2.6.1 (package com.unity.ai.inference)"**라고 씁니다. 2.2~2.3에서만 이름이 "Inference Engine"이었고, 2.4.0에서 다시 Sentis로 바뀌었습니다(패키지 CHANGELOG).
 
 ## 1. Unity에서 할 일
 
 1. 에디터가 다시 컴파일한 뒤 Console에 에러가 없는지 확인합니다.
-2. `Assets/player_ai.onnx`를 선택했을 때 Inspector에 Inference Engine 모델 정보(입력 `[batch,19]`, 출력 `[batch,10]`)가 보여야 합니다. 안 보이면 우클릭 → **Reimport**.
+2. `Assets/player_ai.onnx`를 선택했을 때 Inspector에 Sentis 모델 정보(입력 `[batch,19]`, 출력 `[batch,10]`)가 보여야 합니다. 안 보이면 우클릭 → **Reimport**.
 3. 모델 참조 다시 연결: 타입이 `NNModel` → `ModelAsset`으로 바뀌었기 때문에 `MLBrain`의 **Model Asset** 칸에 연결합니다. `player_ai.onnx`를 다시 드래그하세요.
 4. `MLBrain`의 **Backend Type**은 `CPU`(기본값)로 둡니다. 19→64→64→10 크기의 작은 MLP는 CPU(Burst)가 GPU보다 지연이 낮습니다.
 
@@ -34,7 +34,7 @@
 python Tools/train.py --data "C:/Users/User/AppData/LocalLow/pvp/pvp/CombatLogs" --out Assets/player_ai.onnx --folds 5 --seeds 0 1 2 3 4
 ```
 
-- **세션 단위 5-fold 교차검증 × 5개 시드 = 25회** 평가 → accuracy, macro-F1의 평균 ± SD와 95% CI를 출력합니다. 단일 실험 수치 대신 이 값을 논문에 보고하세요.
+- **로그 파일 단위 5-fold 교차검증 × 5개 시드 = 25회** 평가(분할은 시드와 무관하게 같고, 시드는 모델 초기값만 바꿈) → accuracy, macro-F1의 평균 ± SD와 95% CI를 출력합니다. 단일 실험 수치 대신 이 값을 논문에 보고하세요.
 - 다수 클래스 baseline 정확도도 함께 출력되므로 "모델이 단순히 Idle만 찍는 것보다 낫다"를 보일 수 있습니다.
 - 결과: `Tools/results/train_report.json`(요약 + confusion matrix), `train_report_runs.csv`(25회 각각의 결과)
 - 출력 뉴런은 10개로 고정되므로 Table 1(출력층 = 10)과 본문의 "10 distinct action classes"가 일치합니다.
@@ -70,6 +70,6 @@ python Tools/analyze_matches.py "C:/Users/User/AppData/LocalLow/pvp/pvp/MatchLog
 | 코멘트 | 대응 | 원고에서 수정할 곳 |
 |---|---|---|
 | 1. 지능적 행동을 어떻게 검증했는가 | 3개 조건 × 100판 × 3회 반복 대전, 승률(CI)·엔트로피·통계 검정, (선택) 사용자 평가 | 새 Experiment 절, 결과 표, 재현 정보(시드, Unity 버전, 하드웨어, 코드 공개) |
-| 2. 단일 실험이라 신뢰성이 낮음 | 세션 단위 5-fold × 5 시드 = 25회, 평균 ± SD, 95% CI | 정확도 수치, confusion matrix |
+| 2. 단일 실험이라 신뢰성이 낮음 | 로그 파일 단위 5-fold × 5 시드 = 25회, 평균 ± SD, 95% CI(정규근사) | 정확도 수치, confusion matrix |
 | 3. 10 클래스 vs 14 뉴런, Fig 2 = Fig 9 | 출력층 10개로 재학습, Table 1 수정 | Table 1, 그림 9 교체(새 결과 그림) 또는 삭제 |
-| 4. Barracuda가 지원 종료됨 | Unity 6.3 LTS + Inference Engine 2.6.1로 이전 | 본문, 그림, 키워드에서 Barracuda → Inference Engine |
+| 4. Barracuda가 지원 종료됨 | Unity 6.3 LTS + Sentis 2.6.1로 이전 | 본문, 그림, 키워드에서 Barracuda → Sentis |

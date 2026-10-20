@@ -2,7 +2,7 @@
 
 Raw data for the re-experiment (human demonstrations and the 900-match evaluation). Everything in `Tools/results/` can be regenerated from this folder.
 
-- Unity 6000.3.26f1 (6.3 LTS) with Inference Engine 2.6.1 (formerly Sentis)
+- Unity 6000.3.26f1 (6.3 LTS) with Unity Sentis 2.6.1 (package `com.unity.ai.inference`; named "Inference Engine" only in versions 2.2–2.3)
 - AMD Ryzen 7 7800X3D, NVIDIA GeForce RTX 4070 Ti
 - All values were logged at 10 Hz in game time.
 
