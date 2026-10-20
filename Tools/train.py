@@ -19,6 +19,7 @@ NPC 행동 분류 MLP 학습 + 반복 평가 + ONNX 내보내기 (Unity Sentis 2
       --out Assets/player_ai.onnx --folds 5 --seeds 0 1 2 3 4
 """
 import argparse
+import fnmatch
 import glob
 import json
 import os
@@ -57,8 +58,9 @@ class PolicyMLP(nn.Module):
         return self.net((x - self.mean) / self.std)
 
 
-def load(data_dir):
+def load(data_dir, exclude=()):
     files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
+    files = [f for f in files if not any(fnmatch.fnmatch(os.path.basename(f), pat) for pat in exclude)]
     if not files:
         raise SystemExit("CSV가 없습니다: " + data_dir)
     df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
@@ -151,6 +153,8 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", required=True)
+    ap.add_argument("--exclude", nargs="*", default=[],
+                    help="제외할 로그 파일 이름 패턴 (예: P01_S01_*.csv, 민감도 분석용)")
     ap.add_argument("--out", default="Assets/player_ai.onnx")
     ap.add_argument("--report", default="Tools/results/train_report.json")
     ap.add_argument("--folds", type=int, default=5)
@@ -165,7 +169,9 @@ def main():
     ap.add_argument("--horizon", type=int, default=3, help="한가한 순간 이후 새 행동을 찾을 틱 수 (10 Hz 기준 3 = 0.3초)")
     args = ap.parse_args()
 
-    df, files = load(args.data)
+    df, files = load(args.data, args.exclude)
+    if args.exclude:
+        print("제외한 패턴:", args.exclude)
     n_raw = len(df)
     if args.target == "decision":
         df = build_decisions(df, args.horizon)
