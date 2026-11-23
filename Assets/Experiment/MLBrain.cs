@@ -17,6 +17,12 @@ public class MLBrain : NpcBrain
     [Tooltip("진단용: 매 결정의 입력 19개·출력 확률·선택 행동을 CSV로 저장 (persistentDataPath/MLDebug)")]
     public bool logDecisions = false;
 
+    [Header("Logit adjustment (리뷰어 2, Major 3)")]
+    [Tooltip("켜면 학습 때 쓴 클래스 가중치(sqrt 역빈도)의 효과를 추론 때 되돌림: logit_c − log w_c. MatchRunner가 MLAdj 조건에서 자동으로 켭니다.")]
+    public bool logitAdjust = false;
+    [Tooltip("log w_c (ActionClass 순서). train.py 기본 설정(sqrt)과 data/human 9개 파일로 계산")]
+    public float[] logClassWeights = { -0.66114f, -0.09389f, 0.43093f, 1.23565f, 1.38901f, 0.16285f, 0.13599f, 0.48047f, -0.40771f, 0.53084f };
+
     public int FallbackCount { get; private set; }
 
     private Worker worker;
@@ -62,6 +68,8 @@ public class MLBrain : NpcBrain
                         throw new Exception("출력 크기 " + (output == null ? 0 : output.shape.length) + " ≠ " + ActionInfo.Count);
 
                     float[] logits = output.DownloadToArray();
+                    if (logitAdjust)
+                        for (int i = 0; i < logits.Length && i < logClassWeights.Length; i++) logits[i] -= logClassWeights[i];
                     int best = 0;
                     for (int i = 1; i < logits.Length; i++)
                     {

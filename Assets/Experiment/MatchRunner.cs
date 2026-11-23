@@ -14,7 +14,7 @@ using UnityEngine.AI;
 // - 저장 위치: Application.persistentDataPath/MatchLogs/
 public class MatchRunner : MonoBehaviour
 {
-    public enum Condition { Random, FSM, ML }
+    public enum Condition { Random, FSM, ML, FM, MLAdj }   // FM: 인간 빈도 무작위, MLAdj: ML + logit adjustment
 
     [Header("대전 오브젝트")]
     public GameObject npc;           // RandomBrain, FSMBrain, MLBrain 모두 부착
@@ -42,6 +42,7 @@ public class MatchRunner : MonoBehaviour
     private RandomBrain randomBrain;
     private FSMBrain fsmBrain;
     private MLBrain mlBrain;
+    private FrequencyMatchedBrain fmBrain;
     private ReferenceBotBrain botBrain;
     private StreamWriter writer;
 
@@ -70,6 +71,8 @@ public class MatchRunner : MonoBehaviour
         randomBrain = npc.GetComponent<RandomBrain>();
         fsmBrain = npc.GetComponent<FSMBrain>();
         mlBrain = npc.GetComponent<MLBrain>();
+        fmBrain = npc.GetComponent<FrequencyMatchedBrain>();
+        if (fmBrain == null) { fmBrain = npc.AddComponent<FrequencyMatchedBrain>(); fmBrain.enabled = false; }
 
         botExec = opponentBot.GetComponent<NpcActionExecutor>();
         botState = opponentBot.GetComponent<CombatAgentState>();
@@ -79,7 +82,7 @@ public class MatchRunner : MonoBehaviour
         // 서로를 상대로 지정
         npcExec.opponent = botState;
         botExec.opponent = npcState;
-        foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain })
+        foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain, fmBrain })
             if (b != null) b.opponent = botState;
         botBrain.opponent = npcState;
 
@@ -94,7 +97,7 @@ public class MatchRunner : MonoBehaviour
         }
 
         // 공격 사거리를 한 곳에서 통일
-        foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain, botBrain })
+        foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain, fmBrain, botBrain })
             if (b != null) b.attackRange = attackRange;
         npcExec.SetAttackRange(attackRange);
         botExec.SetAttackRange(attackRange);
@@ -122,7 +125,7 @@ public class MatchRunner : MonoBehaviour
             string dpath = Path.Combine(dir, string.Format("decisions_{0}_{1:yyyyMMdd_HHmmss}.csv", runLabel, DateTime.Now));
             decisionWriter = new StreamWriter(dpath, false, new UTF8Encoding(false));
             decisionWriter.WriteLine("run,condition,match,seed,t," + string.Join(",", CombatFeatures.Names) + ",self_action,chosen,in_combo");
-            foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain })
+            foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain, fmBrain })
                 if (b != null) b.Decided += OnDecided;
             UnityEngine.Debug.Log("[MatchRunner] 결정 기록: " + dpath);
         }
@@ -160,6 +163,7 @@ public class MatchRunner : MonoBehaviour
         {
             case Condition.Random: return randomBrain;
             case Condition.FSM: return fsmBrain;
+            case Condition.FM: return fmBrain;
             default: return mlBrain;
         }
     }
@@ -169,6 +173,7 @@ public class MatchRunner : MonoBehaviour
         if (randomBrain != null) randomBrain.enabled = active == randomBrain;
         if (fsmBrain != null) fsmBrain.enabled = active == fsmBrain;
         if (mlBrain != null) mlBrain.enabled = active == mlBrain;
+        if (fmBrain != null) fmBrain.enabled = active == fmBrain;
     }
 
     private void ResetAgent(GameObject go, HealthSystem h, NpcActionExecutor ex, CombatAgentState st, Transform spawn)
@@ -202,7 +207,7 @@ public class MatchRunner : MonoBehaviour
 
         UnityEngine.Random.InitState(seed);
         brain.LatenciesMs.Clear();
-        if (mlBrain != null) mlBrain.ResetFallbackCount();
+        if (mlBrain != null) { mlBrain.ResetFallbackCount(); mlBrain.logitAdjust = c == Condition.MLAdj; }
         SetBrains(brain);
         botBrain.enabled = true;
 
@@ -243,7 +248,7 @@ public class MatchRunner : MonoBehaviour
         double latMean = lat.Count > 0 ? lat.Average() : 0.0;
         double latSd = lat.Count > 1 ? Math.Sqrt(lat.Sum(x => (x - latMean) * (x - latMean)) / (lat.Count - 1)) : 0.0;
         double latMax = lat.Count > 0 ? lat.Max() : 0.0;
-        int fallbacks = (c == Condition.ML && mlBrain != null) ? mlBrain.FallbackCount : 0;
+        int fallbacks = ((c == Condition.ML || c == Condition.MLAdj) && mlBrain != null) ? mlBrain.FallbackCount : 0;
 
         CultureInfo ci = CultureInfo.InvariantCulture;
         StringBuilder sb = new StringBuilder();

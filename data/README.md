@@ -68,6 +68,21 @@ Settings used in every run:
 - the chosen action (`chosen`)
 - whether the decision was a combo follow-up opportunity (`in_combo`)
 
+## `matches/` (continued): FM baseline and logit adjustment (2026-11-23, 600 matches)
+
+Added after the second review round. Same scene, opponent, attack range, seeds and settings as the main evaluation; only the NPC's brain differs. Files: `*_run1_20261123_190022.csv`, `*_run2_20261123_201213.csv`, `*_run3_20261123_212134.csv` (base seeds 1000, 2000, 3000; 100 matches per condition per run).
+
+- **FM** (`Assets/Experiment/FrequencyMatchedBrain.cs`): ignores the state. In range, it samples actions with the human in-range decision frequencies (n = 4,853 free decisions) and continues combos with the human continuation rates (59.1% after Slash, 73.1% after Slash2). Out of range it chases, like `RandomBrain`.
+- **MLAdj**: the same `player_ai.onnx` as ML, with logit adjustment at inference (`MLBrain.logitAdjust`): logit_c − log w_c, where w_c are the square-root inverse-frequency class weights used in training. This undoes the shift of the sampled policy toward rare classes. No retraining.
+
+Analysis with state-conditioned measures (conditional JS over opponent-attacking × distance bins, defensive reactivity = P(defend | opponent attacking) − P(defend | not)):
+
+```bash
+python Tools/analyze_conditional.py --decisions "data/matches/decisions_run*.csv" --matches "data/matches/matches_run*.csv" --human data/human
+```
+
+Output: `Tools/results/conditional_experiment.txt`. Note that the human reference is still the training data (in-sample); a held-out-session evaluation is pending.
+
 ## `runtime_check/`: Unity vs. Python output check (Section 3.2)
 
 Four logs written by `MLBrain` with **Log Decisions** on, during preliminary ML matches with the final `player_ai.onnx` (4,050 decisions). Each row holds the 19 inputs, the 10 softmax probabilities computed in Unity (rounded to 4 decimals), and the chosen action.
