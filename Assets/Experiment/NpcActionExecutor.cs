@@ -39,6 +39,12 @@ public class NpcActionExecutor : MonoBehaviour
     [Tooltip("공격 판정 각도: 상대가 정면 기준 이 값(내적) 이상일 때만 명중")]
     public float hitFacingDot = 0.3f;
 
+    public enum HitMode { Distance, SwordCollider }
+    [Header("명중 판정 (리뷰어 2, Major 4)")]
+    [Tooltip("Distance: 예전 방식(몸 중심 거리 ≤ attackRange+0.5, 정면 각도 ≥ hitFacingDot, 데미지 min~maxDamage). " +
+             "SwordCollider: 사람과 같은 칼 콜라이더 판정(SwordController, 몸 콜라이더에 닿을 때만, 데미지 5~10). MatchRunner가 설정")]
+    public HitMode hitMode = HitMode.Distance;
+
     [Header("진단")]
     public bool debugLog = false;
     public bool showOverlay = true;
@@ -57,6 +63,10 @@ public class NpcActionExecutor : MonoBehaviour
     private Vector3 lastPosition;
     private float busySince;
     private ActionClass currentSlash = ActionClass.Idle;
+    private SwordController sword;
+    private Collider[] opponentBody;
+    private CombatAgentState opponentBodyOwner;
+    private bool swordOverlapping;
     private ActionClass? queuedSlash;
     private bool comboWindowOpen, comboDecisionUsed;
 
@@ -67,6 +77,8 @@ public class NpcActionExecutor : MonoBehaviour
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponentInChildren<Animator>();
         health = GetComponent<HealthSystem>();
+        sword = GetComponent<SwordController>();
+        if (sword != null) sword.Hit += OnSwordHit;
         agent.stoppingDistance = Mathf.Max(0.1f, attackRange - stopMargin);
         lastPosition = transform.position;
     }
@@ -115,6 +127,63 @@ public class NpcActionExecutor : MonoBehaviour
         attackRange = range;
         if (agent == null) agent = GetComponent<NavMeshAgent>();
         agent.stoppingDistance = Mathf.Max(0.1f, attackRange - stopMargin);
+    }
+
+    // 명중 판정 방식 설정. SwordCollider면 칼이 지정된 상대만 맞히도록 SwordController에 알려 줌
+    public void SetHitMode(HitMode mode)
+    {
+        hitMode = mode;
+        if (sword == null) sword = GetComponent<SwordController>();
+        if (sword != null)
+        {
+            sword.allowedTarget = (mode == HitMode.SwordCollider && opponent != null) ? opponent.health : null;
+            sword.manualOverlap = mode == HitMode.SwordCollider;
+        }
+        else if (mode == HitMode.SwordCollider)
+            Debug.LogError("[Executor] SwordCollider 모드인데 SwordController가 없습니다: " + name);
+    }
+
+    // SwordCollider 모드: 칼 판정이 켜진 동안 칼 박스와 상대 몸(트리거가 아닌 콜라이더)의 겹침을 매 프레임 계산.
+    // 겹치기 시작한 순간에만 HandleHit 호출 → 사람 쪽 OnTriggerEnter와 같은 조건.
+    // (두 NPC 모두 kinematic Rigidbody·같은 레이어라 물리 트리거 이벤트가 오지 않으므로 직접 계산)
+    private void LateUpdate()
+    {
+        if (hitMode != HitMode.SwordCollider || sword == null || opponent == null || opponent.health == null) { swordOverlapping = false; return; }
+        BoxCollider box = sword.SwordCollider;
+        if (box == null || !box.enabled || !box.gameObject.activeInHierarchy) { swordOverlapping = false; return; }
+
+        if (opponentBody == null || opponentBodyOwner != opponent)
+        {
+            var list = new System.Collections.Generic.List<Collider>();
+            foreach (Collider c in opponent.GetComponentsInChildren<Collider>(true))
+                if (!c.isTrigger) list.Add(c);
+            opponentBody = list.ToArray();
+            opponentBodyOwner = opponent;
+        }
+
+        Collider touched = null;
+        foreach (Collider c in opponentBody)
+        {
+            if (c == null || !c.enabled || !c.gameObject.activeInHierarchy) continue;
+            if (Physics.ComputePenetration(box, box.transform.position, box.transform.rotation,
+                                           c, c.transform.position, c.transform.rotation, out _, out _))
+            { touched = c; break; }
+        }
+        if (touched != null && !swordOverlapping) sword.HandleHit(touched);
+        swordOverlapping = touched != null;
+    }
+
+    private void OnSwordHit(HealthSystem target, int hpLoss)
+    {
+        if (hitMode != HitMode.SwordCollider || opponent == null || target != opponent.health) return;
+        if (hpLoss > 0) HitsLanded++;
+        LastHitResult = hpLoss > 0 ? "칼 명중: " + hpLoss + " 데미지" : "칼 명중, 상대 방어로 0 데미지";
+        Log();
+    }
+
+    private void OnDestroy()
+    {
+        if (sword != null) sword.Hit -= OnSwordHit;
     }
 
     public void ResetCounts()
@@ -236,7 +305,7 @@ public class NpcActionExecutor : MonoBehaviour
                         bool hit = false;
                         while (InState(st))
                         {
-                            if (!hit && Time.time - t0 >= HitTime(currentSlash)) { TryHit(); hit = true; }
+                            if (!hit && Time.time - t0 >= HitTime(currentSlash)) { if (hitMode == HitMode.Distance) TryHit(); hit = true; }
                             yield return null;
                         }
                         comboWindowOpen = false;
@@ -271,7 +340,7 @@ public class NpcActionExecutor : MonoBehaviour
                     bool hit = a != ActionClass.CrouchSlash;
                     while (InState(st))
                     {
-                        if (!hit && Time.time - t0 >= crouchSlashHitTime) { TryHit(); hit = true; }
+                        if (!hit && Time.time - t0 >= crouchSlashHitTime) { if (hitMode == HitMode.Distance) TryHit(); hit = true; }
                         yield return null;
                     }
                     break;

@@ -31,10 +31,14 @@ public class MatchRunner : MonoBehaviour
     [Tooltip("최종 측정(FPS/지연)은 반드시 1로 실행하세요")]
     public float timeScale = 1f;
     public string runLabel = "main";
+    [Tooltip("1보다 크면 run을 연달아 실행: 라벨 = runLabel_run1, _run2 …, 시드 = baseSeed + 1000 × (run 번호 − 1). run마다 결과 파일이 따로 생김")]
+    public int repeatRuns = 1;
     [Tooltip("모든 Brain·Executor에 똑같이 적용되는 공격 사거리(m). 캐릭터 Scale에 맞춰 설정 (NavMeshAgent 반지름 × Scale × 2 = 최소 접근 거리보다 커야 함)")]
     public float attackRange = 4f;
     [Tooltip("NPC끼리 NavMeshAgent 회피를 끔. 켜 두면 서로 밀어내서 3.75 m 안으로 못 들어감 (사람과 싸울 때는 약 3.0 m)")]
     public bool disableAgentAvoidance = true;
+    [Tooltip("명중 판정. SwordCollider(기본): 사람과 같은 칼 콜라이더(몸에 닿을 때만). Distance: 2026-10/11 실험의 예전 방식(거리+각도)")]
+    public NpcActionExecutor.HitMode hitMode = NpcActionExecutor.HitMode.SwordCollider;
 
     private NpcActionExecutor npcExec, botExec;
     private CombatAgentState npcState, botState;
@@ -101,6 +105,9 @@ public class MatchRunner : MonoBehaviour
             if (b != null) b.attackRange = attackRange;
         npcExec.SetAttackRange(attackRange);
         botExec.SetAttackRange(attackRange);
+        npcExec.SetHitMode(hitMode);
+        botExec.SetHitMode(hitMode);
+        UnityEngine.Debug.Log("[MatchRunner] 명중 판정: " + hitMode);
 
         // 실험 중 자동 회복·자동 리스폰 끄기
         npcHealth.autoRegen = false; npcHealth.autoRespawn = false;
@@ -111,48 +118,65 @@ public class MatchRunner : MonoBehaviour
 
         string dir = Path.Combine(Application.persistentDataPath, "MatchLogs");
         Directory.CreateDirectory(dir);
-        string path = Path.Combine(dir, string.Format("matches_{0}_{1:yyyyMMdd_HHmmss}.csv", runLabel, DateTime.Now));
-        writer = new StreamWriter(path, false, new UTF8Encoding(false));
-        string counts = string.Join(",", Enum.GetNames(typeof(ActionClass)).Select(n => "cnt_" + n));
-        writer.WriteLine("run,condition,match,seed,outcome,duration_s,npc_hp_end,opp_hp_end,npc_hits,opp_hits," +
-                         "frames,fps_mean,fps_p1,decisions,latency_mean_ms,latency_sd_ms,latency_max_ms,fallbacks," +
-                         counts + ",time_scale,attack_range,device,gpu,unity_version");
-        writer.Flush();
-        UnityEngine.Debug.Log("[MatchRunner] 결과 파일: " + path);
-
         if (logDecisions)
-        {
-            string dpath = Path.Combine(dir, string.Format("decisions_{0}_{1:yyyyMMdd_HHmmss}.csv", runLabel, DateTime.Now));
-            decisionWriter = new StreamWriter(dpath, false, new UTF8Encoding(false));
-            decisionWriter.WriteLine("run,condition,match,seed,t," + string.Join(",", CombatFeatures.Names) + ",self_action,chosen,in_combo");
             foreach (NpcBrain b in new NpcBrain[] { randomBrain, fsmBrain, mlBrain, fmBrain })
                 if (b != null) b.Decided += OnDecided;
-            UnityEngine.Debug.Log("[MatchRunner] 결정 기록: " + dpath);
-        }
 
         yield return null;
         Application.runInBackground = true;   // 다른 창을 눌러도 실험 계속 진행
         Time.timeScale = timeScale;
-        totalMatches = conditions.Length * matchesPerCondition;
+        int runs = Mathf.Max(1, repeatRuns);
+        totalMatches = runs * conditions.Length * matchesPerCondition;
         doneMatches = 0;
         foreach (Condition c in conditions) tally[c] = new int[3];
         experimentStartRealtime = Time.realtimeSinceStartup;
 
-        foreach (Condition c in conditions)
+        string label0 = runLabel;
+        int seed0 = baseSeed;
+        string path = null;
+        for (int r = 0; r < runs; r++)
         {
-            for (int i = 0; i < matchesPerCondition; i++)
+            if (runs > 1)
             {
-                currentCondition = c;
-                currentIndex = i;
-                yield return RunMatch(c, i);
-                doneMatches++;
+                runLabel = label0 + "_run" + (r + 1);
+                baseSeed = seed0 + 1000 * r;
             }
+            path = Path.Combine(dir, string.Format("matches_{0}_{1:yyyyMMdd_HHmmss}.csv", runLabel, DateTime.Now));
+            writer = new StreamWriter(path, false, new UTF8Encoding(false));
+            string counts = string.Join(",", Enum.GetNames(typeof(ActionClass)).Select(n => "cnt_" + n));
+            writer.WriteLine("run,condition,match,seed,outcome,duration_s,npc_hp_end,opp_hp_end,npc_hits,opp_hits," +
+                             "frames,fps_mean,fps_p1,decisions,latency_mean_ms,latency_sd_ms,latency_max_ms,fallbacks," +
+                             counts + ",time_scale,attack_range,device,gpu,unity_version,hit_mode");
+            writer.Flush();
+            UnityEngine.Debug.Log("[MatchRunner] 결과 파일: " + path + " (시드 " + baseSeed + ")");
+
+            if (logDecisions)
+            {
+                string dpath = Path.Combine(dir, string.Format("decisions_{0}_{1:yyyyMMdd_HHmmss}.csv", runLabel, DateTime.Now));
+                decisionWriter = new StreamWriter(dpath, false, new UTF8Encoding(false));
+                decisionWriter.WriteLine("run,condition,match,seed,t," + string.Join(",", CombatFeatures.Names) + ",self_action,chosen,in_combo");
+                UnityEngine.Debug.Log("[MatchRunner] 결정 기록: " + dpath);
+            }
+
+            foreach (Condition c in conditions)
+            {
+                for (int i = 0; i < matchesPerCondition; i++)
+                {
+                    currentCondition = c;
+                    currentIndex = i;
+                    yield return RunMatch(c, i);
+                    doneMatches++;
+                }
+            }
+
+            writer.Close();
+            writer = null;
+            if (decisionWriter != null) { decisionWriter.Close(); decisionWriter = null; }
         }
+        runLabel = label0;
+        baseSeed = seed0;
 
         Time.timeScale = 1f;
-        writer.Close();
-        if (decisionWriter != null) { decisionWriter.Close(); decisionWriter = null; }
-        writer = null;
         finished = true;
         UnityEngine.Debug.Log("[MatchRunner] 전체 실험 완료: " + path);
     }
@@ -265,6 +289,7 @@ public class MatchRunner : MonoBehaviour
         sb.Append(',').Append(Clean(SystemInfo.processorType));
         sb.Append(',').Append(Clean(SystemInfo.graphicsDeviceName));
         sb.Append(',').Append(Application.unityVersion);
+        sb.Append(',').Append(hitMode);
         writer.WriteLine(sb.ToString());
         writer.Flush();
 

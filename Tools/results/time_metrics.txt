@@ -1,0 +1,35 @@
+사거리(<4.5 m) 안 시간 기준 지표 (사람: 세션 7개, 사거리 안 916 s; NPC: 조건별 300경기)
+                      Random    FSM     ML  MLAdj     FM  Human
+time_Idle               1.0%   9.7%   2.7%   5.9%   4.7%  28.7%
+time_Move               0.4%   0.4%   0.2%   0.3%   0.7%   2.7%
+time_Slash*            53.3%  62.2%  43.6%  31.6%  22.2%  24.8%
+time_Block              6.9%  23.8%   9.0%   9.2%   9.1%   5.2%
+time_CrouchBlock        9.4%   3.9%   9.6%   9.9%  13.8%   5.5%
+time_Jump               9.1%   0.0%   6.8%   5.1%   4.9%   4.2%
+time_Crouch             9.4%   0.0%  18.3%  31.7%  38.3%  23.5%
+time_CrouchSlash       10.4%   0.0%   9.9%   6.3%   6.4%   5.4%
+starts_atk_per_min     17.28  14.98  10.11   8.20   7.83  10.81
+starts_def_per_min     10.23   9.80  11.74  12.34  13.84  20.37
+starts_crouch_per_min   5.23   0.00   9.33  15.42  17.43  20.63
+starts_jump_per_min     4.63   0.00   3.58   2.89   2.70   4.26
+bout_Idle_median_s      0.10   0.61   0.10   0.13   0.10   0.53
+bout_Crouch_median_s    1.02    nan   1.02   1.03   1.03   0.46
+defended_within_1s     20.3%  47.2%  36.2%  35.9%  27.9%  54.5%
+reaction_median_s       0.00   0.00   0.00   0.00   0.00   0.41
+
+시간 비율 분포의 JS divergence (vs 사람)
+  Random: 0.201
+  FSM: 0.315
+  ML: 0.135
+  MLAdj: 0.083
+  FM: 0.104
+
+경기 단위 효과크기 (Cliff's delta, a − b; |d| < 0.147 무시할 만함, < 0.33 작음, < 0.474 중간, 그 이상 큼)
+| 비교 | npc_hits | entropy_combat | starts_atk_per_min | starts_def_per_min | time_Crouch | defended_within_1s |
+|---|---|---|---|---|---|---|
+| MLAdj vs FM | +0.25 (small) | -0.90 (large) | +0.03 (negligible) | -0.14 (negligible) | -0.25 (small) | +0.13 (negligible) |
+| MLAdj vs ML | -0.43 (medium) | -0.78 (large) | -0.22 (small) | +0.07 (negligible) | +0.54 (large) | -0.00 (negligible) |
+| ML vs FM | +0.65 (large) | -0.41 (medium) | +0.27 (small) | -0.22 (small) | -0.72 (large) | +0.14 (negligible) |
+| ML vs FSM | -0.69 (large) | +0.17 (small) | -0.61 (large) | +0.06 (negligible) | +0.89 (large) | -0.37 (medium) |
+| ML vs Random | -0.19 (small) | -0.67 (large) | -0.68 (large) | +0.09 (negligible) | +0.42 (medium) | +0.31 (small) |
+| FSM vs Random | +0.55 (large) | -0.80 (large) | -0.27 (small) | +0.02 (negligible) | -0.72 (large) | +0.69 (large) |

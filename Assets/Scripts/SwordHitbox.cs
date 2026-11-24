@@ -15,6 +15,18 @@ public class SwordHitbox : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         if (swordController == null) return;
+        if (swordController.manualOverlap) return;   // NpcActionExecutor가 겹침을 직접 계산함
+
+        // 자기 본체 충돌 무시 (예: PlayerWeapon → Player)
+        if (other.GetComponentInParent<SwordController>() == swordController)
+            return;
+
+        // 대상이 지정된 경우(NPC끼리 대전) 레이어 검사 생략 → SwordController.HandleHit에서 대상 확인
+        if (swordController.allowedTarget != null)
+        {
+            swordController.HandleHit(other);
+            return;
+        }
 
         int targetLayer = other.gameObject.layer;
 

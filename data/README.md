@@ -83,6 +83,20 @@ python Tools/analyze_conditional.py --decisions "data/matches/decisions_run*.csv
 
 Output: `Tools/results/conditional_experiment.txt`. Note that the human reference is still the training data (in-sample); a held-out-session evaluation is pending.
 
+## `hit_diagnostics/`: how hits were actually registered (2026-11-24)
+
+Reviewer 2 noted that the human's hits were registered by the sword collider and the NPCs' hits by `NpcActionExecutor.TryHit`. Logging every sword hit (`Assets/Scripts/HitDiagnostics.cs`) showed a larger problem:
+
+- **Human → NPC (data collection, `human_vs_npc_legacy_*.csv`)**: the player's sword trigger also hit the NPC's `SphereCollider` trigger (radius 4 × scale 3 ≈ 12 m), so 28 of 32 swings registered on that sphere, including swings while facing away (facing −0.97) and at 5.3 m. In practice every swing connected unless the NPC blocked.
+- **NPC → human (data collection)**: hits registered only on the player's body (`CharacterController`); the player has no such sphere.
+- **NPC ↔ reference bot (evaluations up to 2026-11-23)**: `TryHit`, i.e., body-centre distance ≤ attack range + 0.5 m and facing ≥ 0.3.
+
+Fix (`hit_mode = SwordCollider`, default from now on): everyone is hit only when the sword box touches the opponent's body collider; trigger colliders are ignored (`SwordController.legacyTriggerHits = false`). Between two NPCs, the overlap is computed every frame with `Physics.ComputePenetration` (both are kinematic and on the Enemy layer, so physics trigger events are not delivered), and a hit is applied on the frame the overlap begins, as `OnTriggerEnter` does for the player. Damage 5–10 for everyone. The old behaviour stays available (`HitMode.Distance`, `legacyTriggerHits = true`) to reproduce earlier results.
+
+`npc_vs_bot_swordcollider_pilot_*.csv` (50 pilot matches): all 680 sword contacts were on the body capsule, at 2.76–4.83 m (median 3.38 m); 18% were blocked (0 damage).
+
+The human demonstrations in `human/` were recorded with the legacy rule and should be re-collected under the fixed rule.
+
 ## `runtime_check/`: Unity vs. Python output check (Section 3.2)
 
 Four logs written by `MLBrain` with **Log Decisions** on, during preliminary ML matches with the final `player_ai.onnx` (4,050 decisions). Each row holds the 19 inputs, the 10 softmax probabilities computed in Unity (rounded to 4 decimals), and the chosen action.
