@@ -97,6 +97,17 @@ Fix (`hit_mode = SwordCollider`, default from now on): everyone is hit only when
 
 The human demonstrations in `human/` were recorded with the legacy rule and should be re-collected under the fixed rule.
 
+## `matches_swordcollider/`: main evaluation repeated with the unified hit rule (2026-11-24/25, 1,500 matches)
+
+Same scene, opponent, attack range (4 m), seeds (run1/2/3 = 1000/2000/3000) and 100 matches per condition per run as `matches/`, with `hit_mode = SwordCollider` (see `hit_diagnostics/`) and five conditions: Random, FSM, ML, MLAdj, FM. Run with `MatchRunner.repeatRuns = 3`, run label `sw`.
+
+```bash
+python Tools/analyze_conditional.py --decisions "data/matches_swordcollider/decisions_*.csv" --matches "data/matches_swordcollider/matches_*.csv" --human data/human
+python Tools/time_metrics.py --decisions "data/matches_swordcollider/decisions_*.csv" --matches "data/matches_swordcollider/matches_*.csv" --human data/human
+```
+
+Outputs: `Tools/results/conditional_experiment_swordcollider.txt`, `Tools/results/time_metrics_swordcollider.txt`.
+
 ## `runtime_check/`: Unity vs. Python output check (Section 3.2)
 
 Four logs written by `MLBrain` with **Log Decisions** on, during preliminary ML matches with the final `player_ai.onnx` (4,050 decisions). Each row holds the 19 inputs, the 10 softmax probabilities computed in Unity (rounded to 4 decimals), and the chosen action.
