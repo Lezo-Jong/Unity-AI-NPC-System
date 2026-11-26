@@ -138,6 +138,14 @@ python Tools/time_metrics.py --decisions "data/matches_swordcollider_v2/decision
 
 Results: `Tools/results/conditional_experiment_with_mlagents*.txt`, `Tools/results/time_metrics_with_mlagents.txt`.
 
+## `hit_diagnostics/` (continued): hit logs of the final evaluation
+
+`hits_20261125_215101.csv` (main evaluation, 1,500 matches), `hits_20261126_163713.csv` (ML-Agents baselines, 600 matches) and `hits_20261125_210414.csv` (human baseline, 100 matches) are the HitDiagnostics logs of the Play sessions in `matches_swordcollider_v2/`, `matches_mlagents_bc/` and `human_baseline/`. A hit with `hp_loss = 0` was blocked. Share of the opponent's hits blocked per controller (Section 3.3):
+
+```
+python Tools/block_mediation.py --hits data/hit_diagnostics/hits_20261125_215101.csv --matches "data/matches_swordcollider_v2/matches_*.csv" --hits data/hit_diagnostics/hits_20261126_163713.csv --matches "data/matches_mlagents_bc/matches_*.csv" --hits data/hit_diagnostics/hits_20261125_210414.csv --matches "data/human_baseline/matches_*.csv"
+```
+
 ## `human_baseline/`: the demonstrator against the evaluation opponent (2026-11-25, 100 matches)
 
 The same participant (P01) played 100 matches against `ReferenceBotBrain` with `Assets/Experiment/HumanBaselineRunner.cs`: same opponent, attack range (4 m), HP (50) and seed sequence (1000 + match) as the NPC evaluation, unified sword-collider hit rule (body contact only, damage 5–10), and the sword collider switched off automatically outside attack animations (`SwordController.autoDisableOutsideAttack`).
