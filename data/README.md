@@ -122,6 +122,22 @@ python Tools/time_metrics.py --decisions "data/matches_swordcollider_v2/decision
 
 The second command uses the human-baseline log (`P01_S90`, same opponent and rules, not used in training) as the human reference. Outputs: `Tools/results/*_swordcollider_v2*.txt`.
 
+## `matches_mlagents_bc/`: ML-Agents BC baselines (2026-11-26, 600 matches)
+
+Two NPCs trained with the behavioral cloning module of Unity ML-Agents (Python `mlagents` 1.1.0) on the same demonstrations as `Assets/player_ai.onnx` (Section 2.3.1 and 3.5 of the paper):
+
+- `MLA_Tick` (`Assets/mla_bc_tick.onnx`): standard ML-Agents demonstrations, i.e. the action in progress at every 0.1 s step (10,449 samples).
+- `MLA_DP` (`Assets/mla_bc_dp.onnx`): the 6,274 decision-point samples used by our MLP.
+
+Run with the same MatchRunner settings and base seeds as `matches_swordcollider_v2/` (SwordCollider hit rule, attack range 4 m, time scale 1, 3 runs x 100 matches per controller, label `sw2_mla`). Models and held-out evaluation: `python Tools/mlagents_bc.py --data data/human --export Assets` and `--loso --seeds 0 1 2 3 4` (results in `Tools/results/mlagents_bc/`; requires Python 3.10 and `pip install mlagents==1.1.0`).
+
+```
+python Tools/analyze_conditional.py --decisions "data/matches_swordcollider_v2/decisions_*.csv" "data/matches_mlagents_bc/decisions_*.csv" --matches "data/matches_swordcollider_v2/matches_*.csv" "data/matches_mlagents_bc/matches_*.csv" --human data/human
+python Tools/time_metrics.py --decisions "data/matches_swordcollider_v2/decisions_*.csv" "data/matches_mlagents_bc/decisions_*.csv" --matches "data/matches_swordcollider_v2/matches_*.csv" "data/matches_mlagents_bc/matches_*.csv" --human data/human
+```
+
+Results: `Tools/results/conditional_experiment_with_mlagents*.txt`, `Tools/results/time_metrics_with_mlagents.txt`.
+
 ## `human_baseline/`: the demonstrator against the evaluation opponent (2026-11-25, 100 matches)
 
 The same participant (P01) played 100 matches against `ReferenceBotBrain` with `Assets/Experiment/HumanBaselineRunner.cs`: same opponent, attack range (4 m), HP (50) and seed sequence (1000 + match) as the NPC evaluation, unified sword-collider hit rule (body contact only, damage 5–10), and the sword collider switched off automatically outside attack animations (`SwordController.autoDisableOutsideAttack`).

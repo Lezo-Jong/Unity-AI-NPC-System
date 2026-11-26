@@ -14,7 +14,9 @@ using UnityEngine.AI;
 // - 저장 위치: Application.persistentDataPath/MatchLogs/
 public class MatchRunner : MonoBehaviour
 {
-    public enum Condition { Random, FSM, ML, FM, MLAdj }   // FM: 인간 빈도 무작위, MLAdj: ML + logit adjustment
+    // FM: 인간 빈도 무작위, MLAdj: ML + logit adjustment,
+    // MLA_Tick / MLA_DP: Unity ML-Agents BC 모듈로 학습한 기준선 (Tools/mlagents_bc.py). Tick = 표준 방식(매 틱 현재 행동), DP = 우리와 같은 결정 시점 표본
+    public enum Condition { Random, FSM, ML, FM, MLAdj, MLA_Tick, MLA_DP }
 
     [Header("대전 오브젝트")]
     public GameObject npc;           // RandomBrain, FSMBrain, MLBrain 모두 부착
@@ -39,6 +41,10 @@ public class MatchRunner : MonoBehaviour
     public bool disableAgentAvoidance = true;
     [Tooltip("명중 판정. SwordCollider(기본): 사람과 같은 칼 콜라이더(몸에 닿을 때만). Distance: 2026-10/11 실험의 예전 방식(거리+각도)")]
     public NpcActionExecutor.HitMode hitMode = NpcActionExecutor.HitMode.SwordCollider;
+
+    [Header("ML-Agents BC 기준선 모델 (MLBrain으로 실행, 확률 샘플링 설정은 ML과 같음)")]
+    public Unity.InferenceEngine.ModelAsset mlaTickModel;   // Assets/mla_bc_tick.onnx
+    public Unity.InferenceEngine.ModelAsset mlaDpModel;     // Assets/mla_bc_dp.onnx
 
     private NpcActionExecutor npcExec, botExec;
     private CombatAgentState npcState, botState;
@@ -221,6 +227,12 @@ public class MatchRunner : MonoBehaviour
             yield break;
         }
 
+        if ((c == Condition.MLA_Tick && mlaTickModel == null) || (c == Condition.MLA_DP && mlaDpModel == null))
+        {
+            UnityEngine.Debug.LogError("[MatchRunner] " + c + " 모델이 비어 있습니다 (MatchRunner의 ML-Agents BC 칸).");
+            yield break;
+        }
+
         SetBrains(null);
         botBrain.enabled = false;
         ResetAgent(npc, npcHealth, npcExec, npcState, npcSpawn);
@@ -231,7 +243,12 @@ public class MatchRunner : MonoBehaviour
 
         UnityEngine.Random.InitState(seed);
         brain.LatenciesMs.Clear();
-        if (mlBrain != null) { mlBrain.ResetFallbackCount(); mlBrain.logitAdjust = c == Condition.MLAdj; }
+        if (mlBrain != null)
+        {
+            mlBrain.UseModel(c == Condition.MLA_Tick ? mlaTickModel : c == Condition.MLA_DP ? mlaDpModel : null);
+            mlBrain.ResetFallbackCount();
+            mlBrain.logitAdjust = c == Condition.MLAdj;
+        }
         SetBrains(brain);
         botBrain.enabled = true;
 
@@ -272,7 +289,7 @@ public class MatchRunner : MonoBehaviour
         double latMean = lat.Count > 0 ? lat.Average() : 0.0;
         double latSd = lat.Count > 1 ? Math.Sqrt(lat.Sum(x => (x - latMean) * (x - latMean)) / (lat.Count - 1)) : 0.0;
         double latMax = lat.Count > 0 ? lat.Max() : 0.0;
-        int fallbacks = ((c == Condition.ML || c == Condition.MLAdj) && mlBrain != null) ? mlBrain.FallbackCount : 0;
+        int fallbacks = (BrainFor(c) == mlBrain && mlBrain != null) ? mlBrain.FallbackCount : 0;
 
         CultureInfo ci = CultureInfo.InvariantCulture;
         StringBuilder sb = new StringBuilder();

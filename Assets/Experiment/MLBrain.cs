@@ -30,12 +30,33 @@ public class MLBrain : NpcBrain
     private StreamWriter debugWriter;
     private readonly float[] probs = new float[ActionInfo.Count];
 
+    private ModelAsset defaultModel;
+    private ModelAsset loadedModel;
+
     protected override void Awake()
     {
         base.Awake();
+        defaultModel = modelAsset;
+        LoadWorker(modelAsset);
+    }
+
+    // ML-Agents BC 기준선(리뷰어: ML-Agents와의 차이)용. null이면 Inspector의 기본 모델로 돌아갑니다.
+    // 모델이 바뀔 때만 Worker를 새로 만들고 warm-up 합니다.
+    public void UseModel(ModelAsset asset)
+    {
+        if (asset == null) asset = defaultModel;
+        if (asset == loadedModel && worker != null) return;
+        worker?.Dispose();
+        worker = null;
+        LoadWorker(asset);
+    }
+
+    private void LoadWorker(ModelAsset asset)
+    {
+        loadedModel = asset;
         try
         {
-            Model model = ModelLoader.Load(modelAsset);
+            Model model = ModelLoader.Load(asset);
             worker = new Worker(model, backendType);
 
             // Warm-up: 첫 실행의 준비 비용이 결정 지연 측정에 섞이지 않도록 미리 한 번 실행

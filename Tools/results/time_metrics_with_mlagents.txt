@@ -1,0 +1,41 @@
+/home/claude/mlavenv/lib/python3.10/site-packages/numpy/lib/nanfunctions.py:1217: RuntimeWarning: All-NaN slice encountered
+  r, k = function_base._ureduce(a, func=_nanmedian, axis=axis, out=out,
+사거리(<4.5 m) 안 시간 기준 지표 (사람: 세션 7개, 사거리 안 916 s; NPC: 조건별 300경기)
+                      Random    FSM     ML  MLAdj     FM MLA_Tick MLA_DP  Human
+time_Idle               0.9%   9.5%   2.6%   5.6%   5.3%    20.4%   6.8%  28.7%
+time_Move               0.5%   0.4%   0.2%   0.3%   0.9%     0.2%   0.3%   2.7%
+time_Slash*            53.7%  60.2%  43.7%  31.3%  18.9%     0.0%  30.4%  24.8%
+time_Block              6.4%  25.9%   8.7%  10.2%   9.6%     0.0%   9.5%   5.2%
+time_CrouchBlock        9.0%   4.0%  10.2%  10.5%  12.5%     0.0%  10.6%   5.5%
+time_Jump               9.1%   0.0%   7.5%   4.6%   5.7%    19.7%   5.1%   4.2%
+time_Crouch             9.2%   0.0%  17.7%  32.5%  39.2%    59.7%  29.9%  23.5%
+time_CrouchSlash       11.3%   0.0%   9.3%   5.0%   8.0%     0.0%   7.4%   5.4%
+starts_atk_per_min     16.92  14.32  10.06   7.72   7.96     0.00   8.35  10.81
+starts_def_per_min      9.75  10.07  11.89  13.12  14.04     0.02  13.04  20.37
+starts_crouch_per_min   5.04   0.00   9.13  15.81  17.52    29.65  15.04  20.63
+starts_jump_per_min     4.79   0.00   4.18   2.67   3.18    10.11   2.82   4.26
+bout_Idle_median_s      0.10   0.61   0.10   0.10   0.10     0.21   0.10   0.53
+bout_Crouch_median_s    1.02    nan   1.02   1.02   1.02     1.02   1.02   0.46
+defended_within_1s     20.0%  48.1%  36.8%  37.4%  28.0%     0.1%  39.1%  54.5%
+reaction_median_s       0.00   0.00   0.00   0.00   0.00     0.00   0.00   0.41
+
+시간 비율 분포의 JS divergence (vs 사람)
+  Random: 0.204
+  FSM: 0.319
+  ML: 0.138
+  MLAdj: 0.089
+  FM: 0.101
+  MLA_Tick: 0.317
+  MLA_DP: 0.077
+
+경기 단위 효과크기 (Cliff's delta, a − b; |d| < 0.147 무시할 만함, < 0.33 작음, < 0.474 중간, 그 이상 큼)
+| 비교 | npc_hits | entropy_combat | starts_atk_per_min | starts_def_per_min | time_Crouch | defended_within_1s |
+|---|---|---|---|---|---|---|
+| MLAdj vs FM | +0.17 (small) | -0.90 (large) | -0.04 (negligible) | -0.06 (negligible) | -0.26 (small) | +0.18 (small) |
+| MLAdj vs ML | -0.41 (medium) | -0.75 (large) | -0.28 (small) | +0.11 (negligible) | +0.61 (large) | +0.03 (negligible) |
+| ML vs FM | +0.55 (large) | -0.41 (medium) | +0.26 (small) | -0.17 (small) | -0.75 (large) | +0.14 (negligible) |
+| ML vs FSM | -0.69 (large) | +0.17 (small) | -0.57 (large) | +0.09 (negligible) | +0.90 (large) | -0.34 (medium) |
+| ML vs Random | -0.42 (medium) | -0.71 (large) | -0.67 (large) | +0.16 (small) | +0.46 (medium) | +0.30 (small) |
+| FSM vs Random | +0.41 (medium) | -0.83 (large) | -0.34 (medium) | +0.10 (negligible) | -0.72 (large) | +0.71 (large) |
+| MLAdj vs MLA_DP | -0.06 (negligible) | -0.84 (large) | -0.08 (negligible) | +0.01 (negligible) | +0.11 (negligible) | -0.06 (negligible) |
+| MLA_DP vs FM | +0.22 (small) | -0.23 (small) | +0.06 (negligible) | -0.07 (negligible) | -0.36 (medium) | +0.25 (small) |

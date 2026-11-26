@@ -136,7 +136,7 @@ def main():
     mo = pd.concat([pd.read_csv(f) for p in args.matches for f in sorted(glob.glob(p))], ignore_index=True)
     hu = human_episodes(args.human)
     npc = npc_episodes(dec)
-    conds = [c for c in ["Random", "FSM", "ML", "MLAdj", "FM"] if c in set(npc["condition"])]
+    conds = [c for c in ["Random", "FSM", "ML", "MLAdj", "FM", "MLA_Tick", "MLA_DP"] if c in set(npc["condition"])]
 
     metric_cols = ["time_" + s for s in STATES] + ["starts_atk_per_min", "starts_def_per_min", "starts_crouch_per_min",
                    "starts_jump_per_min", "bout_Idle_median_s", "bout_Crouch_median_s", "defended_within_1s", "reaction_median_s"]
@@ -188,7 +188,7 @@ def main():
     print("\n경기 단위 효과크기 (Cliff's delta, a − b; |d| < 0.147 무시할 만함, < 0.33 작음, < 0.474 중간, 그 이상 큼)")
     print("| 비교 | " + " | ".join(eff_cols) + " |")
     print("|---" * (len(eff_cols) + 1) + "|")
-    for a, b in [("MLAdj", "FM"), ("MLAdj", "ML"), ("ML", "FM"), ("ML", "FSM"), ("ML", "Random"), ("FSM", "Random")]:
+    for a, b in [("MLAdj", "FM"), ("MLAdj", "ML"), ("ML", "FM"), ("ML", "FSM"), ("ML", "Random"), ("FSM", "Random"), ("MLAdj", "MLA_DP"), ("MLA_DP", "FM")]:
         if a not in conds or b not in conds:
             continue
         cells = []

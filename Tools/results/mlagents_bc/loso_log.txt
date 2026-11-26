@@ -1,0 +1,23 @@
+mlagents 1.1.0, torch 2.14.1+cu130; files 9, ticks 10449, decision samples 6274
+/home/claude/mlavenv/lib/python3.10/site-packages/mlagents/trainers/torch_entities/utils.py:289: UserWarning: The use of `x.T` on tensors of dimension other than 2 to reverse their shape is deprecated and it will throw an error in a future release. Consider `x.mT` to transpose batches of matrices or `x.permute(*torch.arange(x.ndim - 1, -1, -1))` to reverse the dimensions of a tensor. (Triggered internally at /__w/pytorch/pytorch/aten/src/ATen/native/TensorShape.cpp:4320.)
+  torch.nn.functional.one_hot(_act.T, action_size[i]).float()
+P01_S01 MLA-BC-tick  NLL 5.628  Brier 0.826  top1 0.475  react -0.000/0.088
+P01_S01 MLA-BC-dp    NLL 2.221  Brier 0.686  top1 0.466  react 0.187/0.088
+P01_S02 MLA-BC-tick  NLL 5.515  Brier 0.869  top1 0.362  react 0.000/0.199
+P01_S02 MLA-BC-dp    NLL 2.212  Brier 0.731  top1 0.362  react 0.236/0.199
+P01_S03 MLA-BC-tick  NLL 5.884  Brier 0.903  top1 0.348  react -0.000/0.196
+P01_S03 MLA-BC-dp    NLL 2.194  Brier 0.697  top1 0.408  react 0.197/0.196
+P01_S04 MLA-BC-tick  NLL 5.890  Brier 0.971  top1 0.344  react -0.000/0.324
+P01_S04 MLA-BC-dp    NLL 2.018  Brier 0.693  top1 0.383  react 0.249/0.324
+P01_S05 MLA-BC-tick  NLL 5.567  Brier 0.869  top1 0.414  react 0.000/0.197
+P01_S05 MLA-BC-dp    NLL 2.258  Brier 0.698  top1 0.440  react 0.259/0.197
+P01_S06 MLA-BC-tick  NLL 5.601  Brier 0.881  top1 0.350  react 0.000/0.237
+P01_S06 MLA-BC-dp    NLL 2.142  Brier 0.700  top1 0.383  react 0.180/0.237
+P01_S07 MLA-BC-tick  NLL 5.170  Brier 1.010  top1 0.304  react 0.000/0.276
+P01_S07 MLA-BC-dp    NLL 2.124  Brier 0.740  top1 0.364  react 0.208/0.276
+             NLL_bits  Brier   top1  ...  JS_inrange  condJS_inrange  react_pred
+policy                               ...                                        
+MLA-BC-dp       2.167  0.706  0.401  ...       0.063           0.101       0.217
+MLA-BC-tick     5.608  0.904  0.371  ...       0.170           0.204       0.000
+
+[2 rows x 7 columns]

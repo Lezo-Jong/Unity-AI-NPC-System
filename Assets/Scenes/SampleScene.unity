@@ -1734,10 +1734,10 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 7.628973e-18, y: 0.72651106, z: -8.065913e-18, w: 0.6871548}
   m_LocalPosition: {x: -5, y: 7.6, z: -10}
-  m_LocalScale: {x: 1.5, y: 0.7, z: 1.8}
+  m_LocalScale: {x: 1.5, y: 0.7, z: 1.8000002}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1909055228}
   m_LocalEulerAnglesHint: {x: 0, y: 93.189, z: 0}
 --- !u!136 &208317303
 CapsuleCollider:
@@ -4064,7 +4064,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.24634995, y: 0.5687635, z: -0.18364877, w: 0.7629502}
+  m_LocalRotation: {x: 0.24679425, y: 0.56691295, z: -0.18305126, w: 0.7643262}
   m_LocalPosition: {x: -20.129576, y: 27.78476, z: -7.6269455}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -6860,6 +6860,11 @@ MonoBehaviour:
   damageCooldown: 0.1
   slashHeight: 1
   crouchSlashHeight: 0.76
+  legacyTriggerHits: 0
+  allowedTarget: {fileID: 0}
+  manualOverlap: 0
+  autoDisableOutsideAttack: 1
+  maxActiveTime: 0.8
 --- !u!114 &680183934
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8156,7 +8161,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 941907849}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.24634992, y: 0.5687635, z: -0.18364878, w: 0.7629502}
+  m_LocalRotation: {x: 0.24679424, y: 0.56691295, z: -0.18305123, w: 0.7643262}
   m_LocalPosition: {x: -20.129576, y: 27.78476, z: -7.6269455}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -8453,6 +8458,11 @@ MonoBehaviour:
   damageCooldown: 0.1
   slashHeight: 1
   crouchSlashHeight: 0.76
+  legacyTriggerHits: 0
+  allowedTarget: {fileID: 0}
+  manualOverlap: 0
+  autoDisableOutsideAttack: 1
+  maxActiveTime: 0.8
 --- !u!114 &1032127248
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8499,7 +8509,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FSMBrain
   executor: {fileID: 1032127252}
   self: {fileID: 0}
-  opponent: {fileID: 0}
+  opponent: {fileID: 680183934}
   decisionHz: 10
   attackRange: 4
   comboCooldown: 1
@@ -8524,6 +8534,18 @@ MonoBehaviour:
   backendType: 512
   sampleAction: 1
   logDecisions: 0
+  logitAdjust: 0
+  logClassWeights:
+  - -0.66114
+  - -0.09389
+  - 0.43093
+  - 1.23565
+  - 1.38901
+  - 0.16285
+  - 0.13599
+  - 0.48047
+  - -0.40771
+  - 0.53084
 --- !u!114 &1032127252
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8550,8 +8572,9 @@ MonoBehaviour:
   enterTimeout: 0.8
   turnSpeed: 540
   stopMargin: 1
-  applyDamage: 1
+  applyDamage: 0
   hitFacingDot: 0.3
+  hitMode: 0
   debugLog: 1
   showOverlay: 1
 --- !u!114 &1032127253
@@ -9424,6 +9447,66 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1397529675}
   m_CullTransparentMesh: 1
+--- !u!1 &1484567185
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1484567187}
+  - component: {fileID: 1484567186}
+  m_Layer: 0
+  m_Name: HumanBaselineRunner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1484567186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1484567185}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af7bc74fe7a70cd449ed81963e758e83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HumanBaselineRunner
+  player: {fileID: 680183922}
+  opponentBot: {fileID: 1683101829}
+  playerSpawn: {fileID: 924411287}
+  opponentSpawn: {fileID: 260305582}
+  disableDuringRun:
+  - {fileID: 1640355719}
+  - {fileID: 1032127232}
+  matches: 100
+  startMatch: 0
+  baseSeed: 1000
+  matchTimeout: 120
+  attackRange: 4
+  countdown: 3
+  runLabel: human_baseline
+  participantId: P01
+  sessionIndex: 90
+--- !u!4 &1484567187
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1484567185}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.94, y: 17.78476, z: -4.97}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1556117567 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -7764487651825262745, guid: ec514c421af35984cb03f0547b0dfc42, type: 3}
@@ -9534,15 +9617,19 @@ MonoBehaviour:
   opponentBot: {fileID: 1683101829}
   npcSpawn: {fileID: 924411287}
   opponentSpawn: {fileID: 260305582}
-  conditions: 000000000100000002000000
+  conditions: 0500000006000000
   matchesPerCondition: 100
-  baseSeed: 3000
+  baseSeed: 1000
   matchTimeout: 120
   settleTime: 0.5
   timeScale: 1
-  runLabel: run3
+  runLabel: sw2_mla
+  repeatRuns: 3
   attackRange: 4
   disableAgentAvoidance: 1
+  hitMode: 1
+  mlaTickModel: {fileID: 5022602860645237092, guid: 0395ee9c43dddfb49bb9534a6024d127, type: 3}
+  mlaDpModel: {fileID: 5022602860645237092, guid: 4586b7da147c72f41882e1c8abd1fdcc, type: 3}
   logDecisions: 1
   showProgress: 1
 --- !u!1 &1653747147
@@ -9703,6 +9790,7 @@ MonoBehaviour:
   stopMargin: 1
   applyDamage: 1
   hitFacingDot: 0.3
+  hitMode: 0
   debugLog: 0
   showOverlay: 1
 --- !u!114 &1683101834
@@ -9739,6 +9827,11 @@ MonoBehaviour:
   damageCooldown: 0.1
   slashHeight: 1
   crouchSlashHeight: 0.76
+  legacyTriggerHits: 0
+  allowedTarget: {fileID: 0}
+  manualOverlap: 0
+  autoDisableOutsideAttack: 1
+  maxActiveTime: 0.8
 --- !u!54 &1683101836
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -10240,6 +10333,7 @@ Transform:
   - {fileID: 410087041}
   - {fileID: 832575519}
   - {fileID: 500584875}
+  - {fileID: 208317301}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &1964426905
@@ -13156,7 +13250,6 @@ SceneRoots:
   m_Roots:
   - {fileID: 1201452459}
   - {fileID: 1909055228}
-  - {fileID: 208317301}
   - {fileID: 680183929}
   - {fileID: 1032127239}
   - {fileID: 1683101843}
@@ -13165,3 +13258,4 @@ SceneRoots:
   - {fileID: 1640355720}
   - {fileID: 924411287}
   - {fileID: 260305582}
+  - {fileID: 1484567187}

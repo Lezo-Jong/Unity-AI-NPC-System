@@ -77,7 +77,7 @@ def main():
                 continue
             s += w * am.js(am.dist_vec(x["label"]), human_bin[b])
             t += w
-        return s / t
+        return s / t if t > 0 else float("nan")
 
     def rate(d, labels, opp_attacking):
         f = d[d["in_combo"] == 0] if "in_combo" in d else d
@@ -101,7 +101,7 @@ def main():
             boots[c]["react"].append(react(x))
 
     def ci(c, k):
-        return "[%.3f–%.3f]" % tuple(np.percentile(boots[c][k], [2.5, 97.5]))
+        return "[%.3f–%.3f]" % tuple(np.nanpercentile(boots[c][k], [2.5, 97.5]))
 
     print("\n| 조건 | N | 승률 [95% CI] | 명중 | JS [95% CI] | 조건부 JS [95% CI] | 방어 반응도 [95% CI] | 방어 % (공격 중/아님) | 공격 시작 % (공격 중/아님) |")
     print("|---|---|---|---|---|---|---|---|---|")
@@ -119,7 +119,8 @@ def main():
         100 * rate(hfree, ATK, 1), 100 * rate(hfree, ATK, 0)))
 
     print("\n조건 간 차이 (a − b, 경기 단위 부트스트랩 95% CI, * = 0 미포함)")
-    for a, b in [("MLAdj", "FM"), ("MLAdj", "ML"), ("ML", "FM")]:
+    for a, b in [("MLAdj", "FM"), ("MLAdj", "ML"), ("ML", "FM"),
+                 ("MLAdj", "MLA_DP"), ("MLA_DP", "FM"), ("MLA_DP", "ML"), ("MLA_Tick", "FM")]:
         if a not in boots or b not in boots:
             continue
         for k, name in [("JS", "JS"), ("cJS", "조건부 JS"), ("react", "방어 반응도")]:
@@ -143,6 +144,19 @@ def main():
         pvals.append(fisher_exact(table)[1])
     for (a, b), p, pa in zip(pairs, pvals, am.holm(np.array(pvals))):
         print("  %s vs %s: p = %.3g, Holm p = %.3g" % (a, b, p, pa))
+
+    # ML-Agents 기준선 비교는 별도 묶음으로 Holm 보정 (본 실험 4쌍의 보정값은 그대로 둠)
+    pairs = [p for p in [("MLAdj", "MLA_DP"), ("MLA_DP", "ML"), ("MLA_DP", "FM"), ("MLA_Tick", "FM")] if p[0] in conds and p[1] in conds]
+    if pairs:
+        print("\n승률 비교: ML-Agents 기준선 (Fisher exact, Holm 보정, 별도 묶음)")
+        pvals = []
+        for a, b in pairs:
+            x, y = mo[mo["condition"] == a], mo[mo["condition"] == b]
+            table = [[(x["outcome"] == "win").sum(), (x["outcome"] != "win").sum()],
+                     [(y["outcome"] == "win").sum(), (y["outcome"] != "win").sum()]]
+            pvals.append(fisher_exact(table)[1])
+        for (a, b), p, pa in zip(pairs, pvals, am.holm(np.array(pvals))):
+            print("  %s vs %s: p = %.3g, Holm p = %.3g" % (a, b, p, pa))
 
     print("\n행동 분포 (%)")
     tab = pd.DataFrame({c: am.dist_vec(dec.loc[dec["condition"] == c, "label"]) * 100 for c in conds}, index=am.ACTIONS)

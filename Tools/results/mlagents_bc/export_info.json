@@ -1,0 +1,38 @@
+{
+  "tick": {
+    "samples": 10449,
+    "updates": 49,
+    "final_loss": 0.7396367251873016,
+    "onnx_max_abs_err": 4.76837158203125e-06,
+    "label_freq": {
+      "Idle": 0.295,
+      "Move": 0.0945,
+      "Slash": 0.0942,
+      "Slash2": 0.059,
+      "Slash3": 0.0628,
+      "Block": 0.045,
+      "CrouchBlock": 0.0466,
+      "Jump": 0.059,
+      "Crouch": 0.1979,
+      "CrouchSlash": 0.0462
+    }
+  },
+  "dp": {
+    "samples": 6274,
+    "updates": 49,
+    "final_loss": 1.2805549568600125,
+    "onnx_max_abs_err": 2.86102294921875e-06,
+    "label_freq": {
+      "Idle": 0.3752,
+      "Move": 0.1207,
+      "Slash": 0.0422,
+      "Slash2": 0.0084,
+      "Slash3": 0.0062,
+      "Block": 0.0722,
+      "CrouchBlock": 0.0762,
+      "Jump": 0.0383,
+      "Crouch": 0.226,
+      "CrouchSlash": 0.0346
+    }
+  }
+}
