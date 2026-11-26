@@ -130,14 +130,17 @@ public class NpcActionExecutor : MonoBehaviour
     }
 
     // 명중 판정 방식 설정. SwordCollider면 칼이 지정된 상대만 맞히도록 SwordController에 알려 줌
-    public void SetHitMode(HitMode mode)
+    // manualOverlap = false: 물리 트리거 이벤트로 판정 (상대가 사람(CharacterController)일 때, 사람 기준선 실험)
+    public void SetHitMode(HitMode mode) { SetHitMode(mode, true); }
+
+    public void SetHitMode(HitMode mode, bool manualOverlap)
     {
         hitMode = mode;
         if (sword == null) sword = GetComponent<SwordController>();
         if (sword != null)
         {
             sword.allowedTarget = (mode == HitMode.SwordCollider && opponent != null) ? opponent.health : null;
-            sword.manualOverlap = mode == HitMode.SwordCollider;
+            sword.manualOverlap = mode == HitMode.SwordCollider && manualOverlap;
         }
         else if (mode == HitMode.SwordCollider)
             Debug.LogError("[Executor] SwordCollider 모드인데 SwordController가 없습니다: " + name);
@@ -148,7 +151,7 @@ public class NpcActionExecutor : MonoBehaviour
     // (두 NPC 모두 kinematic Rigidbody·같은 레이어라 물리 트리거 이벤트가 오지 않으므로 직접 계산)
     private void LateUpdate()
     {
-        if (hitMode != HitMode.SwordCollider || sword == null || opponent == null || opponent.health == null) { swordOverlapping = false; return; }
+        if (hitMode != HitMode.SwordCollider || sword == null || !sword.manualOverlap || opponent == null || opponent.health == null) { swordOverlapping = false; return; }
         BoxCollider box = sword.SwordCollider;
         if (box == null || !box.enabled || !box.gameObject.activeInHierarchy) { swordOverlapping = false; return; }
 

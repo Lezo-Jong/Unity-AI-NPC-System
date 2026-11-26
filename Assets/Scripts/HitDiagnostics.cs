@@ -14,7 +14,7 @@ public static class HitDiagnostics
     public static bool enabled = true;
     private static StreamWriter writer;
 
-    private static void Write(string kind, GameObject attacker, HealthSystem target, Collider other, int damage, int hpLoss)
+    private static void Write(string kind, GameObject attacker, HealthSystem target, Collider other, int damage, int hpLoss, string note = null)
     {
         if (!enabled || attacker == null) return;
         try
@@ -46,7 +46,7 @@ public static class HitDiagnostics
             writer.WriteLine(string.Join(",",
                 Time.time.ToString("F3", ci), kind, attacker.name, target != null ? target.name : "-",
                 dist.ToString("F3", ci), facing.ToString("F3", ci),
-                other != null ? other.name : "-", other != null ? other.GetType().Name : "-",
+                other != null ? other.name : (note ?? "-"), other != null ? other.GetType().Name : "-",
                 other != null ? (other.isTrigger ? "1" : "0") : "-", radius.ToString("F2", ci),
                 damage.ToString(ci), hpLoss.ToString(ci)));
             writer.Flush();
@@ -55,6 +55,12 @@ public static class HitDiagnostics
     }
 
     public static void Swing(GameObject attacker) { Write("swing", attacker, null, null, 0, 0); }
+
+    // 칼 판정이 애니메이션 이벤트가 아니라 안전장치로 꺼진 경우 (collider 열에 이유 기록)
+    public static void AutoOff(GameObject attacker, string reason)
+    {
+        Write("auto_off", attacker, null, null, 0, 0, reason);
+    }
 
     public static void Hit(GameObject attacker, HealthSystem target, Collider other, int damage, int hpLoss)
     {

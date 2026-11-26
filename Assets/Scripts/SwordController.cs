@@ -25,6 +25,14 @@ public class SwordController : MonoBehaviour
     public bool manualOverlap;
     public BoxCollider SwordCollider => swordCollider;
 
+    [Tooltip("공격 애니메이션(Slash/Slash2/Slash3/CrouchSlash) 밖이거나 Max Active Time이 지나면 칼 판정을 자동으로 끔. " +
+             "콤보 전환·동작 중단 때 DisableSlashCollider 이벤트가 빠져 판정이 켜진 채 남는 문제 방지")]
+    public bool autoDisableOutsideAttack = true;
+    public float maxActiveTime = 0.8f;
+    private float enabledAt;
+    private Animator ownerAnimator;
+    private static readonly string[] AttackStates = { "Slash", "Slash2", "Slash3", "CrouchSlash" };
+
     // 명중 알림: (맞은 대상, 실제 HP 감소량). 방어로 막히면 감소량 0
     public event System.Action<HealthSystem, int> Hit;
 
@@ -40,6 +48,8 @@ public class SwordController : MonoBehaviour
             swordCollider.isTrigger = true;
             swordCollider.enabled = false;
         }
+        ownerAnimator = GetComponent<Animator>();
+        if (ownerAnimator == null) ownerAnimator = GetComponentInChildren<Animator>();
     }
 
     // 동작이 중간에 끊기면(사망·리스폰 등) Disable 이벤트가 안 불릴 수 있으므로 꺼질 때 칼 판정도 끔
@@ -56,6 +66,30 @@ public class SwordController : MonoBehaviour
         canDealDamage = true;
     }
 
+    private void Update()
+    {
+        if (!autoDisableOutsideAttack || swordCollider == null || !swordCollider.enabled) return;
+        bool inAttack = true;
+        if (ownerAnimator != null && ownerAnimator.isActiveAndEnabled)
+        {
+            // 전환 중에는 다음 상태의 이벤트가 먼저 올 수 있으므로 현재·다음 상태 중 하나라도 공격이면 유지
+            inAttack = IsAttackState(ownerAnimator.GetCurrentAnimatorStateInfo(0)) ||
+                       (ownerAnimator.IsInTransition(0) && IsAttackState(ownerAnimator.GetNextAnimatorStateInfo(0)));
+        }
+        bool timeout = Time.time - enabledAt > maxActiveTime;
+        if (!inAttack || timeout)
+        {
+            swordCollider.enabled = false;
+            HitDiagnostics.AutoOff(gameObject, timeout ? "timeout" : "not_attack_state");
+        }
+    }
+
+    private static bool IsAttackState(AnimatorStateInfo st)
+    {
+        foreach (string n in AttackStates) if (st.IsName(n)) return true;
+        return false;
+    }
+
     // ────────────────────────────────
     // 일반 Slash Animation Event
     // ────────────────────────────────
@@ -65,6 +99,7 @@ public class SwordController : MonoBehaviour
         {
             swordTransform.localPosition = new Vector3(0f, slashHeight, swordTransform.localPosition.z);
             swordCollider.enabled = true;
+            enabledAt = Time.time;
             HitDiagnostics.Swing(gameObject);
             Debug.Log($"[{gameObject.name}] Slash Collider ENABLE (Height {slashHeight})");
         }
@@ -88,6 +123,7 @@ public class SwordController : MonoBehaviour
         {
             swordTransform.localPosition = new Vector3(0f, crouchSlashHeight, swordTransform.localPosition.z);
             swordCollider.enabled = true;
+            enabledAt = Time.time;
             HitDiagnostics.Swing(gameObject);
             Debug.Log($"[{gameObject.name}] CrouchSlash Collider ENABLE (Height {crouchSlashHeight})");
         }

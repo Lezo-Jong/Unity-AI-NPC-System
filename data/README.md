@@ -99,6 +99,8 @@ The human demonstrations in `human/` were recorded with the legacy rule and shou
 
 ## `matches_swordcollider/`: main evaluation repeated with the unified hit rule (2026-11-24/25, 1,500 matches)
 
+**Superseded by `matches_swordcollider_v2/`.** In these runs the sword collider sometimes stayed on after an attack animation ended (the `DisableSlashCollider` event was skipped at some transitions), so about 10% of the reference bot's hits and 5.5% of the NPC's hits landed more than 1 s after a swing. Kept for transparency.
+
 Same scene, opponent, attack range (4 m), seeds (run1/2/3 = 1000/2000/3000) and 100 matches per condition per run as `matches/`, with `hit_mode = SwordCollider` (see `hit_diagnostics/`) and five conditions: Random, FSM, ML, MLAdj, FM. Run with `MatchRunner.repeatRuns = 3`, run label `sw`.
 
 ```bash
@@ -107,6 +109,28 @@ python Tools/time_metrics.py --decisions "data/matches_swordcollider/decisions_*
 ```
 
 Outputs: `Tools/results/conditional_experiment_swordcollider.txt`, `Tools/results/time_metrics_swordcollider.txt`.
+
+## `matches_swordcollider_v2/`: final evaluation (2026-11-25/26, 1,500 matches)
+
+As `matches_swordcollider/`, with the sword collider switched off automatically outside attack animations (`SwordController.autoDisableOutsideAttack`, 0.8 s safety timeout). Run label `sw2`, seeds 1000/2000/3000. Hit log check: all 20,531 hits on body colliders, none later than 1 s after a swing, at most one hit per swing; 1,646 automatic switch-offs, all because the animation had left the attack state.
+
+```bash
+python Tools/analyze_conditional.py --decisions "data/matches_swordcollider_v2/decisions_*.csv" --matches "data/matches_swordcollider_v2/matches_*.csv" --human data/human
+python Tools/analyze_conditional.py --decisions "data/matches_swordcollider_v2/decisions_*.csv" --matches "data/matches_swordcollider_v2/matches_*.csv" --human data/human_baseline
+python Tools/time_metrics.py --decisions "data/matches_swordcollider_v2/decisions_*.csv" --matches "data/matches_swordcollider_v2/matches_*.csv" --human data/human
+```
+
+The second command uses the human-baseline log (`P01_S90`, same opponent and rules, not used in training) as the human reference. Outputs: `Tools/results/*_swordcollider_v2*.txt`.
+
+## `human_baseline/`: the demonstrator against the evaluation opponent (2026-11-25, 100 matches)
+
+The same participant (P01) played 100 matches against `ReferenceBotBrain` with `Assets/Experiment/HumanBaselineRunner.cs`: same opponent, attack range (4 m), HP (50) and seed sequence (1000 + match) as the NPC evaluation, unified sword-collider hit rule (body contact only, damage 5–10), and the sword collider switched off automatically outside attack animations (`SwordController.autoDisableOutsideAttack`).
+
+- `matches_human_baseline_*.csv`: one row per match, same columns as `matches_*.csv` (condition = Human; `cnt_*` are action starts)
+- `P01_S90_*.csv`: `CombatDataLogger` output at 10 Hz during these matches (session 90, opponent `ReferenceBotBrain`); not used for training, so it is a held-out human reference in the same context as the NPCs
+- `hits_human_baseline_*.csv`: `HitDiagnostics` log (all hits on body colliders, no hit later than 1 s after a swing)
+
+Result: 89 wins, 11 losses (89.0%, Wilson 95% CI 81.4–93.7).
 
 ## `runtime_check/`: Unity vs. Python output check (Section 3.2)
 
